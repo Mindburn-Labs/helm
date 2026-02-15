@@ -268,11 +268,14 @@ func (ds *DemoServer) handleToolExecute(w http.ResponseWriter, r *http.Request) 
 
 	// Create Node
 	// We need a signer. Using the one from main.
-	node, err := ds.graph.AppendSigned(nodeType, payload, "demo-sig-stub", "demo-key")
+	// Principal: "demo-executor", Seq: 1 (stubbed)
+	node, err := ds.graph.AppendSigned(nodeType, payload, "demo-sig-stub", "demo-executor", 1)
 	if err != nil {
 		slog.Error("failed to append to graph", "error", err)
 	} else {
-		receipt.PrevHash = node.PrevNodeHash
+		if len(node.Parents) > 0 {
+			receipt.PrevHash = node.Parents[0]
+		}
 		// In a real system, we'd update receipt with node hash or usage
 	}
 
@@ -327,7 +330,7 @@ func (ds *DemoServer) handleDemoProofGraph(w http.ResponseWriter, r *http.Reques
 	// For demo, we return the raw nodes, UI can visualize.
 	// We sort by lamport clock
 	sort.Slice(allNodes, func(i, j int) bool {
-		return allNodes[i].LamportClock < allNodes[j].LamportClock
+		return allNodes[i].Lamport < allNodes[j].Lamport
 	})
 
 	w.Header().Set("Content-Type", "application/json")

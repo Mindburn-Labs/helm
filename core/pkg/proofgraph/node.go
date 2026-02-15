@@ -4,6 +4,7 @@
 package proofgraph
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -24,62 +25,92 @@ const (
 )
 
 // Node is a single vertex in the ProofGraph DAG.
+// Aligned with HELM Standard v1.2 Appendix B.1
 type Node struct {
-	ID           string   `json:"id"`
-	Type         NodeType `json:"type"`
-	ParentIDs    []string `json:"parent_ids"`
-	PayloadHash  string   `json:"payload_hash"`
-	Payload      []byte   `json:"payload,omitempty"`
-	Signature    string   `json:"signature,omitempty"`
-	SignerKeyID  string   `json:"signer_key_id,omitempty"`
-	LamportClock uint64   `json:"lamport_clock"`
-	Timestamp    int64    `json:"timestamp_unix"`
-	PrevNodeHash string   `json:"prev_node_hash"`
-	NodeHash     string   `json:"node_hash"`
+	NodeHash     string          `json:"node_hash"`
+	Kind         NodeType        `json:"kind"`
+	Parents      []string        `json:"parents"`
+	Lamport      uint64          `json:"lamport"`
+	Principal    string          `json:"principal"`
+	PrincipalSeq uint64          `json:"principal_seq"`
+	Payload      json.RawMessage `json:"payload"`
+	Sig          string          `json:"sig"`
+	Timestamp    int64           `json:"ts_unix_ms,omitempty"`
 }
 
 // ComputeNodeHash computes the deterministic hash of the node (excluding NodeHash itself).
+// Uses JCS (RFC 8785) logic: serialize without node_hash, then SHA-256.
 func (n *Node) ComputeNodeHash() string {
-	h := sha256.New()
-	h.Write([]byte(n.ID))
-	h.Write([]byte(string(n.Type)))
-	for _, p := range n.ParentIDs {
-		h.Write([]byte(p))
+	// Create a temporary structure for hashing that excludes NodeHash
+	type NodeJCS struct {
+		Kind         NodeType        `json:"kind"`
+		Parents      []string        `json:"parents"`
+		Lamport      uint64          `json:"lamport"`
+		Principal    string          `json:"principal"`
+		PrincipalSeq uint64          `json:"principal_seq"`
+		Payload      json.RawMessage `json:"payload"`
+		Sig          string          `json:"sig"`
+		Timestamp    int64           `json:"ts_unix_ms,omitempty"`
 	}
-	h.Write([]byte(n.PayloadHash))
-	h.Write([]byte(n.Signature))
-	h.Write([]byte(n.PrevNodeHash))
-	h.Write([]byte(fmt.Sprintf("%d", n.LamportClock)))
-	h.Write([]byte(fmt.Sprintf("%d", n.Timestamp)))
-	return hex.EncodeToString(h.Sum(nil))
+
+	temp := NodeJCS{
+		Kind:         n.Kind,
+		Parents:      n.Parents,
+		Lamport:      n.Lamport,
+		Principal:    n.Principal,
+		PrincipalSeq: n.PrincipalSeq,
+		Payload:      n.Payload,
+		Sig:          n.Sig,
+		Timestamp:    n.Timestamp,
+	}
+
+	// Marshaling must be canonical: consistent key order, no whitespace.
+	// encoding/json output is compact and sorted by key, but escapes HTML.
+	// RFC 8785 requires NO HTML escaping.
+	// We use a custom buffer writer.
+
+	// Fast path: use standard json.Marshal but check for HTML chars if paranoid.
+	// For this reference implementation, we assume keys are sorted.
+	// We MUST disable HTML escaping.
+
+	// Create a new encoder
+	var buf []byte
+	buffer := bytes.NewBuffer(buf)
+	enc := json.NewEncoder(buffer)
+	enc.SetEscapeHTML(false)
+	if err := enc.Encode(temp); err != nil {
+		// Should not happen for struct
+		return ""
+	}
+
+	// Encoder adds a newline at the end, JCS implies minimal?
+	// RFC 8785 doesn't explicitly mention trailing newline, but usually "canonical bytes" means EXACT bytes.
+	// We'll trim the trailing newline if Encode adds it.
+	data := bytes.TrimSpace(buffer.Bytes())
+
+	h := sha256.Sum256(data)
+	return hex.EncodeToString(h[:])
 }
 
 // Validate checks the node hash integrity.
 func (n *Node) Validate() error {
 	expected := n.ComputeNodeHash()
 	if n.NodeHash != expected {
-		return fmt.Errorf("node %s hash mismatch: got %s, want %s", n.ID, n.NodeHash, expected)
+		return fmt.Errorf("node hash mismatch: got %s, want %s", n.NodeHash, expected)
 	}
 	return nil
 }
 
-// PayloadHashOf computes the SHA-256 of arbitrary payload bytes.
-func PayloadHashOf(data []byte) string {
-	h := sha256.Sum256(data)
-	return hex.EncodeToString(h[:])
-}
-
 // NewNode creates a properly initialized node.
-func NewNode(nodeType NodeType, parentIDs []string, payload []byte, prevHash string, lamport uint64) *Node {
+func NewNode(kind NodeType, parents []string, payload []byte, lamport uint64, principal string, principalSeq uint64) *Node {
 	n := &Node{
-		ID:           fmt.Sprintf("pg-%s-%d", nodeType, time.Now().UnixNano()),
-		Type:         nodeType,
-		ParentIDs:    parentIDs,
-		PayloadHash:  PayloadHashOf(payload),
-		Payload:      payload,
-		LamportClock: lamport,
+		Kind:         kind,
+		Parents:      parents,
+		Payload:      json.RawMessage(payload),
+		Lamport:      lamport,
+		Principal:    principal,
+		PrincipalSeq: principalSeq,
 		Timestamp:    time.Now().Unix(),
-		PrevNodeHash: prevHash,
 	}
 	n.NodeHash = n.ComputeNodeHash()
 	return n

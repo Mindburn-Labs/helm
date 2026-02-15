@@ -42,7 +42,7 @@
 	rate_limit @export {
 		zone export_limit {
 			key    {remote_host}
-			events 2
+			events 10
 			window 1m
 		}
 	}

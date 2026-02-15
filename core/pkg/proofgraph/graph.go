@@ -22,30 +22,25 @@ func NewGraph() *Graph {
 
 // Append adds a node to the graph, linking it to the current heads.
 // Returns the finalized node with computed hash.
-func (g *Graph) Append(nodeType NodeType, payload []byte) (*Node, error) {
+func (g *Graph) Append(kind NodeType, payload []byte, principal string, seq uint64) (*Node, error) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 
 	g.lamport++
 
-	prevHash := ""
-	if len(g.heads) > 0 {
-		// Use the first head's hash as prev for linear chains
-		if head, ok := g.nodes[g.heads[0]]; ok {
-			prevHash = head.NodeHash
-		}
-	}
+	// Standard v1.2: Graph is a DAG. Parents are heads.
+	// We don't track prevHash explicitly in new Node struct beyond parents.
 
-	node := NewNode(nodeType, g.heads, payload, prevHash, g.lamport)
-	g.nodes[node.ID] = node
-	g.heads = []string{node.ID}
+	node := NewNode(kind, g.heads, payload, g.lamport, principal, seq)
+	g.nodes[node.NodeHash] = node
+	g.heads = []string{node.NodeHash}
 
 	return node, nil
 }
 
 // AppendSigned adds a signed node to the graph.
-func (g *Graph) AppendSigned(nodeType NodeType, payload []byte, signature, signerKeyID string) (*Node, error) {
-	node, err := g.Append(nodeType, payload)
+func (g *Graph) AppendSigned(kind NodeType, payload []byte, signature, principal string, seq uint64) (*Node, error) {
+	node, err := g.Append(kind, payload, principal, seq)
 	if err != nil {
 		return nil, err
 	}
@@ -53,8 +48,7 @@ func (g *Graph) AppendSigned(nodeType NodeType, payload []byte, signature, signe
 	g.mu.Lock()
 	defer g.mu.Unlock()
 
-	node.Signature = signature
-	node.SignerKeyID = signerKeyID
+	node.Sig = signature
 	node.NodeHash = node.ComputeNodeHash() // Recompute with signature
 	return node, nil
 }
@@ -107,7 +101,7 @@ func (g *Graph) walkValidate(nodeID string, visited map[string]bool) error {
 		return err
 	}
 
-	for _, pid := range node.ParentIDs {
+	for _, pid := range node.Parents {
 		if err := g.walkValidate(pid, visited); err != nil {
 			return err
 		}

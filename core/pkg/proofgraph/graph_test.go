@@ -7,33 +7,33 @@ import (
 func TestGraph_AppendAndValidate(t *testing.T) {
 	g := NewGraph()
 
-	n1, err := g.Append(NodeTypeIntent, []byte(`{"intent":"create_file"}`))
+	n1, err := g.Append(NodeTypeIntent, []byte(`{"intent":"create_file"}`), "user:1", 1)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if n1.LamportClock != 1 {
-		t.Errorf("lamport = %d, want 1", n1.LamportClock)
+	if n1.Lamport != 1 {
+		t.Errorf("lamport = %d, want 1", n1.Lamport)
 	}
 
-	n2, err := g.Append(NodeTypeAttestation, []byte(`{"decision":"PASS"}`))
+	n2, err := g.Append(NodeTypeAttestation, []byte(`{"decision":"PASS"}`), "user:1", 2)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if n2.LamportClock != 2 {
-		t.Errorf("lamport = %d, want 2", n2.LamportClock)
+	if n2.Lamport != 2 {
+		t.Errorf("lamport = %d, want 2", n2.Lamport)
 	}
 	// n2 should have n1 as parent
-	if len(n2.ParentIDs) != 1 || n2.ParentIDs[0] != n1.ID {
-		t.Errorf("n2 parents = %v, want [%s]", n2.ParentIDs, n1.ID)
+	if len(n2.Parents) != 1 || n2.Parents[0] != n1.NodeHash {
+		t.Errorf("n2 parents = %v, want [%s]", n2.Parents, n1.NodeHash)
 	}
 
-	n3, err := g.Append(NodeTypeEffect, []byte(`{"effect":"file_created"}`))
+	n3, err := g.Append(NodeTypeEffect, []byte(`{"effect":"file_created"}`), "user:1", 3)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// Validate full chain
-	if err := g.ValidateChain(n3.ID); err != nil {
+	if err := g.ValidateChain(n3.NodeHash); err != nil {
 		t.Fatalf("chain validation failed: %v", err)
 	}
 
@@ -47,25 +47,25 @@ func TestGraph_LamportMonotonicity(t *testing.T) {
 
 	var prevClock uint64
 	for i := 0; i < 100; i++ {
-		n, err := g.Append(NodeTypeEffect, []byte(`{}`))
+		n, err := g.Append(NodeTypeEffect, []byte(`{}`), "auto", uint64(i))
 		if err != nil {
 			t.Fatal(err)
 		}
-		if n.LamportClock <= prevClock {
-			t.Fatalf("lamport not monotonic: %d <= %d at step %d", n.LamportClock, prevClock, i)
+		if n.Lamport <= prevClock {
+			t.Fatalf("lamport not monotonic: %d <= %d at step %d", n.Lamport, prevClock, i)
 		}
-		prevClock = n.LamportClock
+		prevClock = n.Lamport
 	}
 }
 
 func TestNode_HashIntegrity(t *testing.T) {
-	n := NewNode(NodeTypeIntent, nil, []byte(`test`), "", 1)
+	n := NewNode(NodeTypeIntent, nil, []byte(`test`), 1, "p", 1)
 	if err := n.Validate(); err != nil {
 		t.Fatalf("fresh node should validate: %v", err)
 	}
 
-	// Tamper with payload hash
-	n.PayloadHash = "tampered"
+	// Tamper with payload
+	n.Payload = []byte(`"tampered"`) // Valid JSON string but different content
 	if err := n.Validate(); err == nil {
 		t.Fatal("tampered node should fail validation")
 	}
@@ -75,11 +75,11 @@ func TestGraph_TrustEvent(t *testing.T) {
 	g := NewGraph()
 
 	payload := []byte(`{"event":"KEY_ROTATED","key_id":"k-1","public_key":"abc123"}`)
-	n, err := g.Append(NodeTypeTrustEvent, payload)
+	n, err := g.Append(NodeTypeTrustEvent, payload, "p", 1)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if n.Type != NodeTypeTrustEvent {
-		t.Errorf("type = %s, want TRUST_EVENT", n.Type)
+	if n.Kind != NodeTypeTrustEvent {
+		t.Errorf("type = %s, want TRUST_EVENT", n.Kind)
 	}
 }
