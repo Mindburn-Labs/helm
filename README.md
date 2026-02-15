@@ -13,6 +13,7 @@ Spec is broader than v0.1 by design — see [docs/OSS_CUTLINE.md](docs/OSS_CUTLI
 - **1-line integration** — swap `base_url`, keep everything else
 - **EvidencePack export** — deterministic `.tar.gz`, verify offline, sue-grade
 - **Bounded compute** — WASI sandbox with gas/time/memory caps, approval ceremonies with timelocks
+- **Canonical Standard** — [HELM Unified Canonical Standard v1.2](HELM_Unified_Canonical_Standard_FINAL_2026-02-15_FINAL_SOTA_v1.2.md)
 
 ---
 

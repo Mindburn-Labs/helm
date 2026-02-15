@@ -73,7 +73,7 @@ echo "OK ($count receipts)"
 # 5. Export
 echo -n "5. Checking /api/v1/export... "
 resp=$(curl -s -k -L -I -X POST "$BASE_URL/api/v1/export")
-if [[ "$resp" != *"Content-Disposition: attachment"* ]]; then
+if ! echo "$resp" | grep -i -q "Content-Disposition: attachment"; then
     echo "FAIL (Missing header)"
     echo "$resp"
     exit 1

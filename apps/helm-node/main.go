@@ -138,6 +138,9 @@ func runServer() {
 	verifier, _ := crypto.NewEd25519Verifier(signer.PublicKeyBytes())
 
 	receiptStore := store.NewPostgresReceiptStore(db)
+	if err := receiptStore.Init(ctx); err != nil {
+		log.Fatalf("Failed to init receipt store: %v", err)
+	}
 
 	meter := metering.NewPostgresMeter(db)
 	if err := meter.Init(ctx); err != nil {

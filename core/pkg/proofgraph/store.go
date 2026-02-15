@@ -14,7 +14,7 @@ type Store interface {
 	GetNode(ctx context.Context, id string) (*Node, error)
 
 	// GetNodesByType retrieves all nodes of a given type within a Lamport range.
-	GetNodesByType(ctx context.Context, nodeType NodeType, fromLamport, toLamport uint64) ([]*Node, error)
+	GetNodesByType(ctx context.Context, kind NodeType, fromLamport, toLamport uint64) ([]*Node, error)
 
 	// GetChain retrieves the chain of nodes from a given node ID back to genesis.
 	GetChain(ctx context.Context, nodeID string) ([]*Node, error)
@@ -41,10 +41,10 @@ func (s *InMemoryStore) Graph() *Graph {
 func (s *InMemoryStore) StoreNode(ctx context.Context, node *Node) error {
 	s.graph.mu.Lock()
 	defer s.graph.mu.Unlock()
-	s.graph.nodes[node.ID] = node
-	s.graph.heads = []string{node.ID}
-	if node.LamportClock > s.graph.lamport {
-		s.graph.lamport = node.LamportClock
+	s.graph.nodes[node.NodeHash] = node
+	s.graph.heads = []string{node.NodeHash}
+	if node.Lamport > s.graph.lamport {
+		s.graph.lamport = node.Lamport
 	}
 	return nil
 }
@@ -57,13 +57,13 @@ func (s *InMemoryStore) GetNode(ctx context.Context, id string) (*Node, error) {
 	return n, nil
 }
 
-func (s *InMemoryStore) GetNodesByType(ctx context.Context, nodeType NodeType, fromLamport, toLamport uint64) ([]*Node, error) {
+func (s *InMemoryStore) GetNodesByType(ctx context.Context, kind NodeType, fromLamport, toLamport uint64) ([]*Node, error) {
 	s.graph.mu.RLock()
 	defer s.graph.mu.RUnlock()
 
 	var result []*Node
 	for _, n := range s.graph.nodes {
-		if n.Type == nodeType && n.LamportClock >= fromLamport && n.LamportClock <= toLamport {
+		if n.Kind == kind && n.Lamport >= fromLamport && n.Lamport <= toLamport {
 			result = append(result, n)
 		}
 	}
@@ -91,7 +91,7 @@ func (s *InMemoryStore) GetChain(ctx context.Context, nodeID string) ([]*Node, e
 			continue
 		}
 		chain = append(chain, n)
-		queue = append(queue, n.ParentIDs...)
+		queue = append(queue, n.Parents...)
 	}
 	return chain, nil
 }
@@ -102,7 +102,7 @@ func (s *InMemoryStore) GetRange(ctx context.Context, fromLamport, toLamport uin
 
 	var result []*Node
 	for _, n := range s.graph.nodes {
-		if n.LamportClock >= fromLamport && n.LamportClock <= toLamport {
+		if n.Lamport >= fromLamport && n.Lamport <= toLamport {
 			result = append(result, n)
 		}
 	}
