@@ -170,7 +170,7 @@ The following packages define the kernel TCB boundary:
 - `core/pkg/runtime/sandbox`
 - `core/pkg/runtime/budget`
 
-TCB forbidden imports (must be enforced by CI linter):
+TCB forbidden imports (must be enforced by CI linter, see [TCB_POLICY.md](../TCB_POLICY.md)):
 - `net/http` (TCB must not be an HTTP client/server)
 - `os/exec`
 - direct vendor SDKs (OpenAI, AWS, GCP, Azure, Stripe, etc.)

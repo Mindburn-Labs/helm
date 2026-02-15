@@ -325,7 +325,7 @@ OSS v0.1 targets L1/L2 core conformance. Spec contains L2/L3 and enterprise/2030
 
 ## Security Posture
 
-- **TCB isolation gate** — 8-package kernel boundary, CI-enforced forbidden imports ([TCB Policy](docs/TCB_POLICY.md))
+- **TCB isolation gate** — 8-package kernel boundary, CI-enforced forbidden imports ([TCB Policy](TCB_POLICY.md))
 - **Bounded compute gate** — WASI sandbox with gas/time/memory caps, deterministic traps on breach ([UC-005](docs/use_cases/UC-005_wasi_gas_exhaustion.sh))
 - **Schema drift fail-closed** — JCS canonicalization + SHA-256 on every tool call, both input and output ([UC-002](docs/use_cases/UC-002_schema_mismatch.sh))
 

@@ -25,6 +25,7 @@ import (
 	"github.com/Mindburn-Labs/helm/core/pkg/metering"
 	"github.com/Mindburn-Labs/helm/core/pkg/pack"
 	"github.com/Mindburn-Labs/helm/core/pkg/prg"
+	"github.com/Mindburn-Labs/helm/core/pkg/proofgraph"
 	"github.com/Mindburn-Labs/helm/core/pkg/registry"
 	"github.com/Mindburn-Labs/helm/core/pkg/store"
 	"github.com/Mindburn-Labs/helm/core/pkg/store/ledger"
@@ -206,26 +207,38 @@ func runServer() {
 	// 4. Console
 	uiAdapt := ui_pkg.NewAGUIAdapter(artStore)
 
-	go func() {
-		port := 8080
-		// Start Console Server
-		// Updated signature: removed Evaluator args
-		if err := console.Start(port, lgr, reg, uiAdapt, receiptStore, meter, "/app/ui", packVerifier, jwtValidator); err != nil {
-			logger.Error("Console server failed", "error", err)
-			return
-		}
-	}()
-
 	// 5. Bridge
 	// NewKernelBridge(l ledger.Ledger, e executor.Executor, c mcp.Catalog, g *guardian.Guardian, verifier crypto.Verifier, lim kernel.LimiterStore)
 	_ = agent.NewKernelBridge(lgr, safeExec, catalog, guard, verifier, nil) // Limiter nil
+
+	// Demo ProofGraph
+	demoGraph := proofgraph.NewGraph()
 
 	// Register Subsystem Routes (from services.go)
 	if services != nil {
 		// Inject Guardian?
 		services.Guardian = guard
-		// RegisterSubsystemRoutes(nil, services) // Helper refactored?
-		// We'll skip registering detailed subsystem routes for now or re-add the helper function
+
+		// Define extra routes callback
+		extraRoutes := func(mux *http.ServeMux) {
+			// 1. Register Standard Subsystems (including governed chat/completions)
+			RegisterSubsystemRoutes(mux, services)
+
+			// 2. Register Demo Routes if enabled
+			if os.Getenv("HELM_DEMO_MODE") == "1" {
+				log.Println("[helm] demo mode: ENABLED")
+				RegisterDemoRoutes(mux, demoGraph, receiptStore, guard, services.Evidence, signer)
+			}
+		}
+
+		// Start Console Server with extra routes
+		go func() {
+			port := 8080
+			if err := console.Start(port, lgr, reg, uiAdapt, receiptStore, meter, "/app/ui", packVerifier, jwtValidator, extraRoutes); err != nil {
+				logger.Error("Console server failed", "error", err)
+				return
+			}
+		}()
 	}
 
 	// Health Server
