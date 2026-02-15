@@ -10,6 +10,7 @@ on:
 
 env:
   GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  GOWORK: "off"
 
 jobs:
   build:
@@ -127,7 +128,9 @@ jobs:
         with:
           go-version: '1.24'
       - name: Build Binaries
-        run: cd core && go build -o ../bin/helm ./cmd/helm/ && go build -o ../bin/helm-node ./cmd/helm-node/
+        run: |
+          cd core && go build -o ../bin/helm ./cmd/helm/
+          cd ../apps/helm-node && go build -o ../../bin/helm-node .
       - name: Run Use Cases
         run: bash scripts/usecases/run_all.sh
 
