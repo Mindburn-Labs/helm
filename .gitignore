@@ -41,7 +41,6 @@ docker-compose.override.yml
 # Artifacts (generated — not part of source)
 /artifacts/
 deps.txt
-sbom.json
 
 # Temporary
 tmp/
