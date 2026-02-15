@@ -1,0 +1,24 @@
+{
+  "name": "@mindburn/helm-sdk",
+  "version": "0.1.0",
+  "description": "TypeScript SDK for HELM — fail-closed tool calling for AI agents",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "type": "module",
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "typescript": "^5.4.0"
+  },
+  "license": "BSL-1.1",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Mindburn-Labs/helm",
+    "directory": "sdk/ts"
+  },
+  "keywords": ["helm", "ai", "governance", "openai", "proxy", "receipts"]
+}

@@ -1,0 +1,11 @@
+{
+  "id": "pack.ops.chaos",
+  "name": "Latency & Error Injection Drill",
+  "version": "1.0.0",
+  "description": "Simulates a partial system outage to test Policy Gates and Circuit Breakers.",
+  "permissions": [
+    "system.burn_budget",
+    "system.degrade_status"
+  ],
+  "author": "ops@helm.sh"
+}

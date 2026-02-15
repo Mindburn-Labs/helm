@@ -1,0 +1,60 @@
+# Binaries
+/bin/
+/helm
+/helm-node
+/fas-score
+/fas-verify
+e2e.test
+*.exe
+*.dll
+*.so
+*.dylib
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Go
+vendor/
+*.test
+coverage.out
+coverage.html
+*.coverprofile
+*.pprof
+*.prof
+
+# Docker
+docker-compose.override.yml
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Artifacts (generated — not part of source)
+/artifacts/
+deps.txt
+sbom.json
+
+# Temporary
+tmp/
+*.tmp
+*.log
+*.bak
+
+# SDK build artifacts
+node_modules/
+dist/
+*.tsbuildinfo
+__pycache__/
+*.egg-info/
+sdk/rust/target/
+sdk/java/target/
+

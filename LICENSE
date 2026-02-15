@@ -1,0 +1,30 @@
+Business Source License 1.1
+
+Parameters
+
+Licensor:             Mindburn Labs
+Licensed Work:        HELM Core OSS v0.1
+                      The Licensed Work is (c) 2026 Mindburn Labs.
+Additional Use Grant: You may make production use of the Licensed Work,
+                      provided your use does not include offering the
+                      Licensed Work to third parties as a managed service.
+Change Date:          2030-02-15
+Change License:       Apache License, Version 2.0
+
+For information about alternative licensing arrangements for the Licensed Work,
+please contact: licensing@mindburn.ai
+
+Notice
+
+Business Source License 1.1 (BUSL-1.1)
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+
+The full text of the Business Source License 1.1 is available at
+https://mariadb.com/bsl11/

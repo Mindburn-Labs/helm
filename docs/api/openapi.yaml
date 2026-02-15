@@ -1,0 +1,232 @@
+openapi: "3.0.3"
+info:
+  title: HELM Kernel API
+  version: "0.1.0"
+  description: |
+    HELM Unified Canonical Standard v1.2 — Kernel API.
+    Deterministic execution firewall with ProofGraph, receipt verification,
+    and approval ceremony support.
+
+servers:
+  - url: http://localhost:8080
+    description: Local development
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      responses:
+        "200":
+          description: OK
+
+  /api/v1/kernel/dispatch:
+    post:
+      summary: Dispatch a tool call through the kernel
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DispatchRequest"
+      responses:
+        "200":
+          description: Tool call result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DispatchResponse"
+        "403":
+          description: Denied by governance
+
+  /api/v1/kernel/approve:
+    post:
+      summary: Submit approval ceremony
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CeremonyRequest"
+      responses:
+        "200":
+          description: Approval accepted
+        "403":
+          description: Ceremony validation failed
+
+  /api/v1/trust/keys/add:
+    post:
+      summary: Add a trusted signing key
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddKeyRequest"
+      responses:
+        "200":
+          description: Key added
+
+  /api/v1/trust/keys/revoke:
+    post:
+      summary: Revoke a trusted signing key
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RevokeKeyRequest"
+      responses:
+        "200":
+          description: Key revoked
+
+  /api/v1/memory/ingest:
+    post:
+      summary: Ingest data (stub in OSS)
+      responses:
+        "501":
+          description: Not available in OSS kernel mode
+
+  /api/v1/memory/search:
+    post:
+      summary: Search memory (stub in OSS)
+      responses:
+        "501":
+          description: Not available in OSS kernel mode
+
+  /v1/chat/completions:
+    post:
+      summary: OpenAI-compatible proxy (optional)
+      description: Requires HELM_ENABLE_OPENAI_PROXY=1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OpenAIChatRequest"
+      responses:
+        "200":
+          description: Chat completion response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpenAIChatResponse"
+
+  /mcp/v1/capabilities:
+    get:
+      summary: List MCP capabilities
+      responses:
+        "200":
+          description: Capability manifest
+
+  /mcp/v1/execute:
+    post:
+      summary: Execute MCP tool call
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MCPToolCallRequest"
+      responses:
+        "200":
+          description: Execution result
+
+components:
+  schemas:
+    DispatchRequest:
+      type: object
+      required: [tool_name, params]
+      properties:
+        tool_name:
+          type: string
+        params:
+          type: object
+
+    DispatchResponse:
+      type: object
+      properties:
+        result:
+          type: object
+        error:
+          type: string
+
+    CeremonyRequest:
+      type: object
+      required: [decision_id, timelock_ms, hold_ms, ui_summary_hash, signature]
+      properties:
+        decision_id:
+          type: string
+        timelock_ms:
+          type: integer
+        hold_ms:
+          type: integer
+        ui_summary_hash:
+          type: string
+        challenge_hash:
+          type: string
+        response_hash:
+          type: string
+        lamport_height:
+          type: integer
+        signer_key_id:
+          type: string
+        signature:
+          type: string
+
+    AddKeyRequest:
+      type: object
+      required: [tenant_id, key_id, public_key]
+      properties:
+        tenant_id:
+          type: string
+        key_id:
+          type: string
+        public_key:
+          type: string
+          description: Hex-encoded Ed25519 public key
+
+    RevokeKeyRequest:
+      type: object
+      required: [tenant_id, key_id]
+      properties:
+        tenant_id:
+          type: string
+        key_id:
+          type: string
+
+    OpenAIChatRequest:
+      type: object
+      required: [messages]
+      properties:
+        model:
+          type: string
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/OpenAIMessage"
+
+    OpenAIChatResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        choices:
+          type: array
+          items:
+            type: object
+
+    OpenAIMessage:
+      type: object
+      properties:
+        role:
+          type: string
+        content:
+          type: string
+
+    MCPToolCallRequest:
+      type: object
+      properties:
+        method:
+          type: string
+        params:
+          type: object

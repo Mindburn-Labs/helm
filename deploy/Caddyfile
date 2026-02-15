@@ -1,0 +1,61 @@
+# ═══════════════════════════════════════════════════════
+#  HELM Demo — Caddy Edge Proxy
+#  - Automatic TLS via Let's Encrypt
+#  - Rate limiting: 60 req/min per IP
+#  - Max request body: 1MB
+#  - Reverse proxy to HELM kernel on :8080
+# ═══════════════════════════════════════════════════════
+
+{$DEMO_DOMAIN:localhost} {
+	# ── Rate Limiting ─────────────────────────────────
+	rate_limit {
+		zone demo_limit {
+			key    {remote_host}
+			events 60
+			window 1m
+		}
+	}
+
+	# ── Request Size Cap ──────────────────────────────
+	request_body {
+		max_size 1MB
+	}
+
+	# ── Security Headers ─────────────────────────────
+	header {
+		X-Content-Type-Options    nosniff
+		X-Frame-Options           DENY
+		Referrer-Policy           strict-origin-when-cross-origin
+		X-Helm-Demo              "true"
+		-Server
+	}
+
+	# ── Health Endpoint (no rate limit) ───────────────
+	handle /health {
+		reverse_proxy helm:8081
+	}
+
+	# ── API Proxy ─────────────────────────────────────
+	handle /v1/* {
+		reverse_proxy helm:8080
+	}
+
+	handle /api/* {
+		reverse_proxy helm:8080
+	}
+
+	handle /mcp/* {
+		reverse_proxy helm:8080
+	}
+
+	# ── Root / catch-all ──────────────────────────────
+	handle {
+		reverse_proxy helm:8080
+	}
+
+	# ── Logging ───────────────────────────────────────
+	log {
+		output stdout
+		format json
+	}
+}

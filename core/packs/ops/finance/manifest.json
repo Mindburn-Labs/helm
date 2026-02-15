@@ -1,0 +1,16 @@
+{
+  "name": "pack.ops.finance",
+  "version": "1.0.0",
+  "description": "Financial Operations and Stripe Integration",
+  "capabilities": [
+    {
+      "name": "create_invoice",
+      "description": "Create a new invoice for a customer via Stripe."
+    },
+    {
+      "name": "check_payment_status",
+      "description": "Check the status of an invoice payment."
+    }
+  ],
+  "dependencies": []
+}

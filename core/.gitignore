@@ -1,0 +1,30 @@
+# Binaries
+/bin/
+dist/
+*.exe
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+/helm
+/bootstrap
+quality-os
+
+# Logs
+*.log
+
+# Sensitive
+.env
+.env.*
+
+# Dependencies
+vendor/
+node_modules/
+
+# OS
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
