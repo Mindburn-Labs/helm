@@ -72,6 +72,8 @@ func Run(args []string, stdout, stderr io.Writer) int {
 	case "server", "serve":
 		startServer()
 		return 0
+	case "health":
+		return runHealthCmd(stdout, stderr)
 	case "coverage":
 		handleCoverage(args[2:])
 		return 0
@@ -99,6 +101,7 @@ func printUsage(w io.Writer) {
 	_, _ = fmt.Fprintln(w, "Kernel Commands:")
 	_, _ = fmt.Fprintln(w, "  server       Run the HELM server (default)")
 	_, _ = fmt.Fprintln(w, "  doctor       Check system health and configuration")
+	_, _ = fmt.Fprintln(w, "  health       Check server health (HTTP)")
 	_, _ = fmt.Fprintln(w, "  init         Initialize a new HELM project")
 	_, _ = fmt.Fprintln(w, "")
 	_, _ = fmt.Fprintln(w, "Conformance & Verification:")
@@ -249,7 +252,7 @@ func runServer() {
 		port := 8080
 		// Start Console Server
 		// Updated signature: removed Evaluator args
-		if err := console.Start(port, lgr, reg, uiAdapt, receiptStore, meter, "/app/ui", packVerifier, jwtValidator); err != nil {
+		if err := console.Start(port, lgr, reg, uiAdapt, receiptStore, meter, "/app/ui", packVerifier, jwtValidator, nil); err != nil {
 			logger.Error("Console server failed", "error", err)
 			return
 		}
@@ -290,4 +293,21 @@ func runServer() {
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 	<-sigChan
 	log.Println("[helm] shutting down")
+}
+
+func runHealthCmd(out, errOut io.Writer) int {
+	resp, err := http.Get("http://localhost:8081/health")
+	if err != nil {
+		fmt.Fprintf(errOut, "Health check failed: %v\n", err)
+		return 1
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		fmt.Fprintf(errOut, "Health check failed: status %d\n", resp.StatusCode)
+		return 1
+	}
+
+	fmt.Fprintln(out, "OK")
+	return 0
 }

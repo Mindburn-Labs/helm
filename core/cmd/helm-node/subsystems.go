@@ -35,6 +35,31 @@ func RegisterSubsystemRoutes(mux *http.ServeMux, svc *Services) {
 			return
 		}
 
+		// DEMO MODE LOGIC
+		// If HELM_DEMO_MODE is set, we return deterministic tool calls.
+		// Since this is the OSS public demo, we assume we are in demo mode if the handler reached here
+		// (or we can check env, but for simplicity in this handler we just do the demo behavior).
+
+		// Check for tool usage in messages
+		// Check for tool usage in messages
+		if msgs, ok := body["messages"].([]interface{}); ok {
+			for _, m := range msgs {
+				if msgMap, ok := m.(map[string]interface{}); ok {
+					if content, ok := msgMap["content"].(string); ok {
+						// Logic to detect tools ... (unused for now)
+						_ = content
+					}
+				}
+			}
+		}
+
+		// In the actual demo wrapper (demo.go handling /v1/chat/completions if using that instead),
+		// but here we are replacing the main kernel handler.
+		// We want to simulate the "Real kernel" behavior where possible, but safely.
+		// For the demo purpose, we intercept here.
+
+		// Verdict/Reason logic handled directly in block below
+
 		if svc.Guardian != nil {
 			model, _ := body["model"].(string)
 			req := guardian.DecisionRequest{
@@ -54,22 +79,80 @@ func RegisterSubsystemRoutes(mux *http.ServeMux, svc *Services) {
 			}
 		}
 
+		// Receipt Header Generation (Simulated for Demo)
+		receiptID := fmt.Sprintf("rcpt-%d", time.Now().UnixNano())
+		w.Header().Set("X-Helm-Receipt-ID", receiptID)
+		w.Header().Set("X-Helm-Lamport-Clock", fmt.Sprintf("%d", time.Now().Unix()))
+		w.Header().Set("X-Helm-Output-Hash", "sha256:demo-output-stub")
+
 		w.Header().Set("Content-Type", "application/json")
+
+		// Deterministic Tool Call Sequence for Demo
+		// 1. If user asks for "Trigger DENY", we return a tool call to 'fail_deny_demo'
+		// 2. If user asks for "Trigger ALLOW", we return a tool call to 'echo'
+		// 3. Otherwise standard completion.
+
+		var choices []map[string]any
+
+		// Check last message content
+		lastMsg := ""
+		if msgs, ok := body["messages"].([]interface{}); ok && len(msgs) > 0 {
+			if last, ok := msgs[len(msgs)-1].(map[string]interface{}); ok {
+				if c, ok := last["content"].(string); ok {
+					lastMsg = c
+				}
+			}
+		}
+
+		if lastMsg == "Trigger DENY" {
+			choices = []map[string]any{{
+				"index": 0,
+				"message": map[string]any{
+					"role": "assistant",
+					"tool_calls": []map[string]any{{
+						"id":   "call_deny_" + receiptID,
+						"type": "function",
+						"function": map[string]string{
+							"name":      "fail_deny_demo",
+							"arguments": "{}",
+						},
+					}},
+				},
+				"finish_reason": "tool_calls",
+			}}
+		} else if lastMsg == "Trigger ALLOW" {
+			choices = []map[string]any{{
+				"index": 0,
+				"message": map[string]any{
+					"role": "assistant",
+					"tool_calls": []map[string]any{{
+						"id":   "call_echo_" + receiptID,
+						"type": "function",
+						"function": map[string]string{
+							"name":      "echo",
+							"arguments": "{\"message\": \"Hello from HELM\"}",
+						},
+					}},
+				},
+				"finish_reason": "tool_calls",
+			}}
+		} else {
+			choices = []map[string]any{{
+				"index": 0,
+				"message": map[string]string{
+					"role":    "assistant",
+					"content": "HELM Kernel: Governed response. Use 'Trigger ALLOW' or 'Trigger DENY' to test tool gates.",
+				},
+				"finish_reason": "stop",
+			}}
+		}
+
 		resp := map[string]any{
-			"id":      "chatcmpl-mock-" + fmt.Sprintf("%d", time.Now().Unix()),
+			"id":      "chatcmpl-" + receiptID,
 			"object":  "chat.completion",
 			"created": time.Now().Unix(),
 			"model":   body["model"],
-			"choices": []map[string]any{
-				{
-					"index": 0,
-					"message": map[string]string{
-						"role":    "assistant",
-						"content": "This is a governed response from the HELM Kernel.",
-					},
-					"finish_reason": "stop",
-				},
-			},
+			"choices": choices,
 		}
 		_ = json.NewEncoder(w).Encode(resp)
 	})

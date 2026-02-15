@@ -11,7 +11,9 @@
 services:
   # ── Edge Proxy ──────────────────────────────────────
   caddy:
-    image: caddy:2-alpine
+    build:
+      context: ./deploy
+      dockerfile: Dockerfile.caddy
     restart: unless-stopped
     ports:
       - "80:80"
@@ -59,7 +61,7 @@ services:
       EVIDENCE_SIGNING_KEY: "demo-ephemeral-key"
       # ⚠️  Demo-only keys. NEVER reuse in production.
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8081/health"]
+      test: ["CMD", "/usr/local/bin/helm", "health"]
       interval: 10s
       timeout: 5s
       retries: 3

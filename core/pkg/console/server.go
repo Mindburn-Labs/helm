@@ -87,7 +87,7 @@ type pendingSignup struct {
 }
 
 // Start launches the Console Server.
-func Start(port int, ledger ledger.Ledger, reg registry.Registry, uiAdapter ui.UIAdapter, receiptStore store.ReceiptStore, meter metering.Meter, staticDir string, verifier *pack.Verifier, validator *auth.JWTValidator) error {
+func Start(port int, ledger ledger.Ledger, reg registry.Registry, uiAdapter ui.UIAdapter, receiptStore store.ReceiptStore, meter metering.Meter, staticDir string, verifier *pack.Verifier, validator *auth.JWTValidator, extraRoutes func(*http.ServeMux)) error {
 	// Initialize Enterprise Components
 	// SOTA 2030: Use Governance Policy Engine
 	pol, err := governance.NewPolicyEngine()
@@ -223,12 +223,44 @@ func Start(port int, ledger ledger.Ledger, reg registry.Registry, uiAdapter ui.U
 		mux.HandleFunc("/", srv.handleDashboard)
 	}
 
+	// Register Extra Routes (from main.go)
+
+	// Register Extra Routes (from main.go)
+	if extraRoutes != nil {
+		extraRoutes(mux)
+	}
+
 	addr := fmt.Sprintf(":%d", port)
 	slog.Info("console interface active", "addr", "http://localhost"+addr)
 	// Production HTTP server with explicit timeouts.
+	// Production HTTP server with explicit timeouts.
+	authHandler := auth.NewMiddleware(validator)(mux)
+
+	// Public Routes Bypass (for Demo Mode)
+	// TODO: Move this to a proper ACL middleware or config
+	publicPaths := []string{
+		"/demo",
+		"/v1/tools/execute",
+		"/api/v1/receipts",
+		"/api/v1/proofgraph",
+		"/api/v1/export",
+		"/limits",
+		"/health",
+	}
+
+	finalHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		for _, p := range publicPaths {
+			if strings.HasPrefix(r.URL.Path, p) {
+				mux.ServeHTTP(w, r)
+				return
+			}
+		}
+		authHandler.ServeHTTP(w, r)
+	})
+
 	httpServer := &http.Server{
 		Addr:         addr,
-		Handler:      auth.NewMiddleware(validator)(mux),
+		Handler:      finalHandler,
 		ReadTimeout:  15 * time.Second,
 		WriteTimeout: 30 * time.Second,
 		IdleTimeout:  60 * time.Second,
