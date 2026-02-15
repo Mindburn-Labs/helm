@@ -3,10 +3,11 @@ name: HELM Core Gates
 on:
   push:
     branches: [main]
-    paths: ['core/**']
+    paths: ['core/**', 'apps/**', '.github/workflows/**']
   pull_request:
     branches: [main]
-    paths: ['core/**']
+    paths: ['core/**', 'apps/**', '.github/workflows/**']
+  workflow_dispatch:
 
 env:
   GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
