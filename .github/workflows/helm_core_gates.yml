@@ -219,7 +219,7 @@ jobs:
           node-version: '22'
       - name: TypeScript SDK build
         run: |
-          cd sdk/typescript
+          cd sdk/ts
           npm install
           npm run build
       - uses: actions/setup-python@v5
