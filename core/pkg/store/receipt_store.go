@@ -28,6 +28,25 @@ func NewPostgresReceiptStore(db *sql.DB) *PostgresReceiptStore {
 	return &PostgresReceiptStore{db: db}
 }
 
+func (s *PostgresReceiptStore) Init(ctx context.Context) error {
+	query := `
+		CREATE TABLE IF NOT EXISTS receipts (
+			receipt_id TEXT PRIMARY KEY,
+			decision_id TEXT,
+			execution_intent_id TEXT,
+			status TEXT,
+			result BYTEA,
+			timestamp TIMESTAMPTZ,
+			executor_id TEXT,
+			prev_hash TEXT,
+			lamport_clock BIGINT
+		);
+		CREATE INDEX IF NOT EXISTS idx_receipts_executor_id ON receipts(executor_id);
+	`
+	_, err := s.db.ExecContext(ctx, query)
+	return err
+}
+
 func (s *PostgresReceiptStore) Get(ctx context.Context, decisionID string) (*contracts.Receipt, error) {
 	query := `
 		SELECT receipt_id, decision_id, execution_intent_id, status, timestamp
