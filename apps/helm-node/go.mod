@@ -1,6 +1,6 @@
 module github.com/Mindburn-Labs/helm/apps/helm-node
 
-go 1.24.0
+go 1.24.13
 
 toolchain go1.24.13
 
