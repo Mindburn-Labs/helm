@@ -83,3 +83,49 @@ func TestGraph_TrustEvent(t *testing.T) {
 		t.Errorf("type = %s, want TRUST_EVENT", n.Kind)
 	}
 }
+
+func TestNode_JCSConsistency(t *testing.T) {
+	// Verify that ComputeNodeHash is deterministic: same node → same hash every time
+	n := NewNode(NodeTypeIntent, []string{"parent1", "parent2"}, []byte(`{"key":"value","nested":{"a":1}}`), 42, "principal:test", 7)
+	hash1 := n.ComputeNodeHash()
+	hash2 := n.ComputeNodeHash()
+	if hash1 != hash2 {
+		t.Fatalf("JCS hashing not deterministic: %s != %s", hash1, hash2)
+	}
+	if hash1 != n.NodeHash {
+		t.Fatalf("node hash mismatch after construction: computed=%s stored=%s", hash1, n.NodeHash)
+	}
+}
+
+func TestNode_JCSDeterminism(t *testing.T) {
+	// Two independently constructed nodes with identical data must produce identical hashes
+	payload := []byte(`{"tool":"web_search","query":"test"}`)
+	n1 := &Node{
+		Kind:         NodeTypeEffect,
+		Parents:      []string{"abc123"},
+		Lamport:      10,
+		Principal:    "user:alice",
+		PrincipalSeq: 3,
+		Payload:      payload,
+		Sig:          "sig-data",
+		Timestamp:    1708200000000,
+	}
+	n2 := &Node{
+		Kind:         NodeTypeEffect,
+		Parents:      []string{"abc123"},
+		Lamport:      10,
+		Principal:    "user:alice",
+		PrincipalSeq: 3,
+		Payload:      payload,
+		Sig:          "sig-data",
+		Timestamp:    1708200000000,
+	}
+	h1 := n1.ComputeNodeHash()
+	h2 := n2.ComputeNodeHash()
+	if h1 == "" || h2 == "" {
+		t.Fatal("hash computation failed")
+	}
+	if h1 != h2 {
+		t.Fatalf("independent nodes with same data produced different hashes: %s != %s", h1, h2)
+	}
+}

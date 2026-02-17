@@ -6,10 +6,17 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
-DOC="$PROJECT_ROOT/HELM_Unified_Canonical_Standard_FINAL_2026-02-15_FINAL_SOTA_v1.2.md"
+DOC="$PROJECT_ROOT/docs/standard/HELM_Unified_Canonical_Standard.md"
+
+# Fall back to root-level file if docs/standard/ version not found
+if [ ! -f "$DOC" ]; then
+    DOC="$PROJECT_ROOT/HELM_Unified_Canonical_Standard_FINAL_2026-02-15_FINAL_SOTA_v1.2.md"
+fi
 
 if [ ! -f "$DOC" ]; then
-    echo "ERROR: Canonical standard document not found: $DOC"
+    echo "ERROR: Canonical standard document not found"
+    echo "  Checked: docs/standard/HELM_Unified_Canonical_Standard.md"
+    echo "  Checked: HELM_Unified_Canonical_Standard_FINAL_2026-02-15_FINAL_SOTA_v1.2.md"
     exit 1
 fi
 

@@ -52,7 +52,7 @@ func TestSafeExecutor_Gating(t *testing.T) {
 	// Setup
 	signer, _ := crypto.NewEd25519Signer("test-key")
 	mockDriver := &MockDriver{}
-	executor := NewSafeExecutor(signer, signer, mockDriver, NewMemoryReceiptStore(), nil, nil, "", nil, nil, nil)
+	executor := NewSafeExecutor(signer, signer, mockDriver, NewMemoryReceiptStore(), nil, nil, "", nil, nil, nil, nil)
 
 	effect := &contracts.Effect{
 		EffectID: "eff-1",
@@ -98,7 +98,7 @@ func TestSafeExecutor_Gating(t *testing.T) {
 
 	// 2. Intent Mismatch -> Block
 	// Create fresh executor to avoid idempotency cache hit from first test
-	executor2 := NewSafeExecutor(signer, signer, mockDriver, NewMemoryReceiptStore(), nil, nil, "", nil, nil, nil)
+	executor2 := NewSafeExecutor(signer, signer, mockDriver, NewMemoryReceiptStore(), nil, nil, "", nil, nil, nil, nil)
 	mockDriver.Called = false
 	mismatchIntent := &contracts.AuthorizedExecutionIntent{DecisionID: "dec-other"}
 
@@ -107,5 +107,79 @@ func TestSafeExecutor_Gating(t *testing.T) {
 	}
 	if mockDriver.Called {
 		t.Error("Driver called despite mismatch")
+	}
+}
+
+func TestSafeExecutor_WithClock(t *testing.T) {
+	// Verify that WithClock injects a deterministic clock
+	fixedTime := time.Date(2026, 2, 17, 12, 0, 0, 0, time.UTC)
+	signer, _ := crypto.NewEd25519Signer("test-key")
+	mockDriver := &MockDriver{}
+	executor := NewSafeExecutor(signer, signer, mockDriver, NewMemoryReceiptStore(), nil, nil, "", nil, nil, nil, nil).
+		WithClock(func() time.Time { return fixedTime })
+
+	effect := &contracts.Effect{
+		EffectID: "eff-clock",
+		Params:   map[string]any{"tool_name": "ls"},
+	}
+	dec := &contracts.DecisionRecord{
+		ID:      "dec-clock",
+		Verdict: "PASS",
+	}
+	if err := signer.SignDecision(dec); err != nil {
+		t.Fatalf("Failed to sign decision: %v", err)
+	}
+	intent := &contracts.AuthorizedExecutionIntent{
+		DecisionID: "dec-clock",
+		ExpiresAt:  fixedTime.Add(1 * time.Hour),
+	}
+	if err := signer.SignIntent(intent); err != nil {
+		t.Fatalf("Failed to sign intent: %v", err)
+	}
+
+	receipt, _, err := executor.Execute(context.Background(), effect, dec, intent)
+	if err != nil {
+		t.Fatalf("Execute failed: %v", err)
+	}
+	if !receipt.Timestamp.Equal(fixedTime) {
+		t.Errorf("Receipt timestamp %v != injected clock %v", receipt.Timestamp, fixedTime)
+	}
+}
+
+func TestSafeExecutor_ExpiredIntent(t *testing.T) {
+	// Use a clock that returns a time AFTER the intent's expiry
+	futureTime := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
+	signer, _ := crypto.NewEd25519Signer("test-key")
+	mockDriver := &MockDriver{}
+	executor := NewSafeExecutor(signer, signer, mockDriver, NewMemoryReceiptStore(), nil, nil, "", nil, nil, nil, nil).
+		WithClock(func() time.Time { return futureTime })
+
+	effect := &contracts.Effect{
+		EffectID: "eff-expired",
+		Params:   map[string]any{"tool_name": "ls"},
+	}
+	dec := &contracts.DecisionRecord{
+		ID:      "dec-expired",
+		Verdict: "PASS",
+	}
+	if err := signer.SignDecision(dec); err != nil {
+		t.Fatalf("Failed to sign decision: %v", err)
+	}
+	intent := &contracts.AuthorizedExecutionIntent{
+		DecisionID: "dec-expired",
+		ExpiresAt:  time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC), // Expired relative to futureTime
+	}
+	if err := signer.SignIntent(intent); err != nil {
+		t.Fatalf("Failed to sign intent: %v", err)
+	}
+
+	_, _, err := executor.Execute(context.Background(), effect, dec, intent)
+	if err == nil {
+		t.Fatal("Expected error for expired intent, got nil")
+	}
+	if !mockDriver.Called {
+		// Good — driver should NOT have been called
+	} else {
+		t.Error("Driver was called despite expired intent")
 	}
 }

@@ -1,6 +1,6 @@
 module github.com/Mindburn-Labs/helm/core
 
-go 1.24.0
+go 1.24.13
 
 require (
 	cloud.google.com/go/storage v1.60.0
@@ -12,7 +12,6 @@ require (
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/google/cel-go v0.27.0
 	github.com/google/uuid v1.6.0
-	github.com/gowebpki/jcs v1.0.1
 	github.com/leanovate/gopter v0.2.11
 	github.com/lib/pq v1.11.2
 	github.com/redis/go-redis/v9 v9.17.3

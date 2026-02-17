@@ -122,11 +122,70 @@ public class HelmClient {
         });
     }
 
+    /** GET /api/v1/proofgraph/receipts/{hash} */
+    public Receipt getReceipt(String receiptHash) {
+        HttpRequest r = req("GET", "/api/v1/proofgraph/receipts/" + receiptHash)
+                .GET().build();
+        return send(r, Receipt.class);
+    }
+
+    /** POST /api/v1/evidence/export — returns raw bytes */
+    public byte[] exportEvidence(String sessionId) {
+        String body = gson.toJson(new java.util.HashMap<String, String>() {{
+            put("session_id", sessionId);
+            put("format", "tar.gz");
+        }});
+        HttpRequest r = req("POST", "/api/v1/evidence/export")
+                .POST(HttpRequest.BodyPublishers.ofString(body))
+                .build();
+        try {
+            HttpResponse<byte[]> resp = httpClient.send(r, HttpResponse.BodyHandlers.ofByteArray());
+            if (resp.statusCode() >= 400) {
+                HelmError err = gson.fromJson(new String(resp.body()), HelmError.class);
+                throw new HelmApiException(
+                        resp.statusCode(),
+                        err != null && err.error != null ? err.error.message : "export failed",
+                        err != null && err.error != null ? err.error.reason_code : "ERROR_INTERNAL");
+            }
+            return resp.body();
+        } catch (IOException | InterruptedException e) {
+            throw new RuntimeException("HELM API request failed", e);
+        }
+    }
+
+    /** POST /api/v1/evidence/verify */
+    public VerificationResult verifyEvidence(byte[] bundle) {
+        // Send as JSON with base64-encoded bundle for simplicity
+        String body = gson.toJson(java.util.Map.of("bundle_b64",
+                java.util.Base64.getEncoder().encodeToString(bundle)));
+        HttpRequest r = req("POST", "/api/v1/evidence/verify")
+                .POST(HttpRequest.BodyPublishers.ofString(body))
+                .build();
+        return send(r, VerificationResult.class);
+    }
+
+    /** POST /api/v1/replay/verify */
+    public VerificationResult replayVerify(byte[] bundle) {
+        String body = gson.toJson(java.util.Map.of("bundle_b64",
+                java.util.Base64.getEncoder().encodeToString(bundle)));
+        HttpRequest r = req("POST", "/api/v1/replay/verify")
+                .POST(HttpRequest.BodyPublishers.ofString(body))
+                .build();
+        return send(r, VerificationResult.class);
+    }
+
     /** POST /api/v1/conformance/run */
     public ConformanceResult conformanceRun(ConformanceRequest req) {
         HttpRequest r = this.req("POST", "/api/v1/conformance/run")
                 .POST(HttpRequest.BodyPublishers.ofString(gson.toJson(req)))
                 .build();
+        return send(r, ConformanceResult.class);
+    }
+
+    /** GET /api/v1/conformance/reports/{id} */
+    public ConformanceResult getConformanceReport(String reportId) {
+        HttpRequest r = req("GET", "/api/v1/conformance/reports/" + reportId)
+                .GET().build();
         return send(r, ConformanceResult.class);
     }
 

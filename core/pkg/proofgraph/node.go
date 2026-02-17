@@ -4,12 +4,13 @@
 package proofgraph
 
 import (
-	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"time"
+
+	"github.com/Mindburn-Labs/helm/core/pkg/canonicalize"
 )
 
 // NodeType enumerates the types of nodes in the ProofGraph.
@@ -39,7 +40,7 @@ type Node struct {
 }
 
 // ComputeNodeHash computes the deterministic hash of the node (excluding NodeHash itself).
-// Uses JCS (RFC 8785) logic: serialize without node_hash, then SHA-256.
+// Uses JCS (RFC 8785) canonicalization via canonicalize.JCS() for cross-platform determinism.
 func (n *Node) ComputeNodeHash() string {
 	// Create a temporary structure for hashing that excludes NodeHash
 	type NodeJCS struct {
@@ -64,29 +65,11 @@ func (n *Node) ComputeNodeHash() string {
 		Timestamp:    n.Timestamp,
 	}
 
-	// Marshaling must be canonical: consistent key order, no whitespace.
-	// encoding/json output is compact and sorted by key, but escapes HTML.
-	// RFC 8785 requires NO HTML escaping.
-	// We use a custom buffer writer.
-
-	// Fast path: use standard json.Marshal but check for HTML chars if paranoid.
-	// For this reference implementation, we assume keys are sorted.
-	// We MUST disable HTML escaping.
-
-	// Create a new encoder
-	var buf []byte
-	buffer := bytes.NewBuffer(buf)
-	enc := json.NewEncoder(buffer)
-	enc.SetEscapeHTML(false)
-	if err := enc.Encode(temp); err != nil {
-		// Should not happen for struct
+	// RFC 8785 (JCS): sorted keys, no HTML escaping, compact format, deterministic.
+	data, err := canonicalize.JCS(temp)
+	if err != nil {
 		return ""
 	}
-
-	// Encoder adds a newline at the end, JCS implies minimal?
-	// RFC 8785 doesn't explicitly mention trailing newline, but usually "canonical bytes" means EXACT bytes.
-	// We'll trim the trailing newline if Encode adds it.
-	data := bytes.TrimSpace(buffer.Bytes())
 
 	h := sha256.Sum256(data)
 	return hex.EncodeToString(h[:])

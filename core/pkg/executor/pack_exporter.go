@@ -1,16 +1,15 @@
 package executor
 
 import (
+	"bytes"
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"time"
 
+	"github.com/Mindburn-Labs/helm/core/pkg/canonicalize"
 	"github.com/Mindburn-Labs/helm/core/pkg/contracts"
 	"github.com/Mindburn-Labs/helm/core/pkg/crypto"
-	"github.com/gowebpki/jcs"
 )
 
 // PackExporter defines the interface for generating and signing proof packs.
@@ -53,8 +52,6 @@ func (e *packExporter) ExportChangePack(ctx context.Context, input *contracts.Ch
 	}
 	input.Attestation.Signature = sig
 
-	input.Attestation.Signature = sig
-
 	return input, nil
 }
 
@@ -73,8 +70,6 @@ func (e *packExporter) ExportIncidentPack(ctx context.Context, input *contracts.
 	if err != nil {
 		return nil, fmt.Errorf("failed to sign pack: %w", err)
 	}
-	input.Attestation.Signature = sig
-
 	input.Attestation.Signature = sig
 
 	return input, nil
@@ -97,8 +92,6 @@ func (e *packExporter) ExportAccessReviewPack(ctx context.Context, input *contra
 	}
 	input.Attestation.Signature = sig
 
-	input.Attestation.Signature = sig
-
 	return input, nil
 }
 
@@ -119,41 +112,45 @@ func (e *packExporter) ExportVendorDueDiligencePack(ctx context.Context, input *
 	}
 	input.Attestation.Signature = sig
 
-	input.Attestation.Signature = sig
-
 	return input, nil
 }
 
 // computePackHash computes the SHA-256 hash of the JCS (RFC 8785) canonicalized pack data.
 // It strips the attestation hash/signature fields before hashing to avoid circular references.
+// Note: It uses core/pkg/canonicalize to ensure strict JCS compliance and large integer safety.
 func (e *packExporter) computePackHash(data interface{}) (string, error) {
+	// 1. Marshal to intermediate JSON (to handle struct tags)
 	jsonBytes, err := json.Marshal(data)
 	if err != nil {
 		return "", err
 	}
 
+	// 2. Unmarshal into generic map, using UseNumber to preserve integers > 2^53
 	var flatMap map[string]interface{}
-	if err := json.Unmarshal(jsonBytes, &flatMap); err != nil {
+	decoder := json.NewDecoder(bytes.NewReader(jsonBytes))
+	decoder.UseNumber() // CRITICAL for Lamport clocks
+	if err := decoder.Decode(&flatMap); err != nil {
 		return "", err
 	}
 
-	// Remove attestation.pack_hash and attestation.signature before hashing.
+	// 3. Remove attestation.pack_hash and attestation.signature before hashing.
 	if attestation, ok := flatMap["attestation"].(map[string]interface{}); ok {
 		delete(attestation, "pack_hash")
 		delete(attestation, "signature")
 	}
 
-	modifiedJSON, err := json.Marshal(flatMap)
+	// 4. Use canonicalize.JCS helper, which handles the map->canonical bytes conversion
+	// recursive marshalling (including json.Number support) is handled by JCS() internally
+	// assuming we passed the correct types.
+	// Wait, canonicalize.JCS handles structs by default.
+	// But we have modified the map. So we pass the map to JCS.
+	// The map contains json.Number (from UseNumber). canonicalize.JCS supports json.Number.
+
+	canonicalBytes, err := canonicalize.JCS(flatMap)
 	if err != nil {
 		return "", err
 	}
 
-	canonicalJSON, err := jcs.Transform(modifiedJSON)
-	if err != nil {
-		return "", err
-	}
-
-	hasher := sha256.New()
-	hasher.Write(canonicalJSON)
-	return fmt.Sprintf("sha256:%s", hex.EncodeToString(hasher.Sum(nil))), nil
+	// 5. Hash
+	return fmt.Sprintf("sha256:%s", canonicalize.HashBytes(canonicalBytes)), nil
 }

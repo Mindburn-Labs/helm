@@ -3,6 +3,7 @@ package executor
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/Mindburn-Labs/helm/core/pkg/contracts"
 	"github.com/Mindburn-Labs/helm/core/pkg/crypto"
@@ -23,6 +24,7 @@ func TestPackExporter_Determinism(t *testing.T) {
 	ctx := context.Background()
 
 	// 1. ChangePack
+	fixedTime := time.Date(2025, 1, 1, 12, 0, 0, 0, time.UTC)
 	changeInput := &contracts.ChangePack{
 		PackID:       "pack-1",
 		PackType:     "CHANGE_PACK",
@@ -35,6 +37,9 @@ func TestPackExporter_Determinism(t *testing.T) {
 		EvidenceRefs: contracts.ChangeEvidenceRefs{
 			ApprovalReceiptID: "rcpt-approve-1",
 			BuildReceiptID:    "rcpt-build-1",
+		},
+		Attestation: contracts.ChangePackAttestation{
+			GeneratedAt: fixedTime,
 		},
 	}
 
@@ -53,7 +58,8 @@ func TestPackExporter_Determinism(t *testing.T) {
 	}
 
 	// Determinism check: same inputs => same hash
-	changeInput3 := &contracts.ChangePack{
+	// Use a fresh input object to ensure no side effects
+	changeInputCopy := &contracts.ChangePack{
 		PackID:       "pack-1",
 		PackType:     "CHANGE_PACK",
 		TargetSystem: "prod-api",
@@ -67,17 +73,26 @@ func TestPackExporter_Determinism(t *testing.T) {
 			BuildReceiptID:    "rcpt-build-1",
 		},
 		Attestation: contracts.ChangePackAttestation{
-			GeneratedAt: pack1.Attestation.GeneratedAt, // SYNC TIME
+			GeneratedAt: fixedTime,
 		},
 	}
 
-	pack2, err := exporter.ExportChangePack(ctx, changeInput3)
+	pack2, err := exporter.ExportChangePack(ctx, changeInputCopy)
 	if err != nil {
 		t.Fatalf("ExportChangePack 2 failed: %v", err)
 	}
 
 	if pack1.Attestation.PackHash != pack2.Attestation.PackHash {
 		t.Errorf("ChangePack hash mismatch (indeterministic): %s vs %s", pack1.Attestation.PackHash, pack2.Attestation.PackHash)
+	}
+
+	// GOLDEN VECTOR CHECK (Verifies RFC 8785 Compliance)
+	// If this hash changes, it means we broke compatibility or determinism.
+	// This hash ensures that the JCS serialization is producing exact byte-for-byte output expected.
+	// It guards against regressions in canonicalize package or map ordering.
+	expectedHash := "sha256:1da7049e168030a6dcd0674142c5983d5c5ed9df2afad73f48330ad273db6b79"
+	if pack1.Attestation.PackHash != expectedHash {
+		t.Errorf("Golden vector mismatch!\nExpected: %s\nGot:      %s\nThis indicates JCS serialization logic has changed or is non-deterministic.", expectedHash, pack1.Attestation.PackHash)
 	}
 }
 

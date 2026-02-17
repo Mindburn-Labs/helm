@@ -1,4 +1,4 @@
-.PHONY: build test crucible lint proxy clean docker demo demo-down release-binaries
+.PHONY: build test test-race test-sdk-ts test-sdk-py test-all crucible lint proxy clean docker demo demo-down release-binaries
 
 # ── Build ──────────────────────────────────────────────
 build:
@@ -12,6 +12,14 @@ test:
 
 test-race:
 	cd core && go test ./pkg/... -count=1 -race
+
+test-sdk-ts:
+	cd sdk/ts && npm test -- --run
+
+test-sdk-py:
+	cd sdk/python && pip install -q '.[dev]' && pytest -v
+
+test-all: test test-sdk-ts test-sdk-py
 
 # ── Crucible (adversarial + conformance + use cases) ──
 crucible: test

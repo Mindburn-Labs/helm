@@ -100,6 +100,31 @@
 
 **Residual risk:** Compromise of the registry admin key. Mitigated by ceremony-based key management.
 
+### T9: Proxy Sidecar Attacks
+
+**Attack vectors:**
+
+1. **MITM between client and proxy:** Attacker intercepts traffic between the app and the local HELM proxy, injecting tool calls or modifying responses.
+
+2. **Budget bypass:** Attacker circumvents budget enforcement by directly hitting the upstream API, bypassing the proxy entirely.
+
+3. **Receipt store tampering:** Attacker modifies the JSONL receipt store on disk to cover traces or inject fake receipts.
+
+4. **Session fixation:** Attacker reuses a session-scoped Lamport counter to replay receipts from a previous session.
+
+5. **SSE stream poisoning:** In streaming mode, attacker injects partial tool_call fragments into the SSE stream to trigger unintended executions.
+
+**Defense:**
+1. Proxy binds to localhost only; TLS is recommended for remote deployments.
+2. Budget enforcement is advisory in OSS sidecar mode. For hard enforcement, use `--island-mode` or deploy as a network gateway.
+3. Receipts are Ed25519-signed. Tampered receipts fail `helm pack verify`. ProofGraph DAG nodes have causal chain integrity (prevHash linking).
+4. Session-scoped Lamport clocks with atomic increments. Cross-session replay detected by `helm replay --verify`.
+5. Streaming responses are buffered and validated before governance checks. Partial tool_calls are held until the complete SSE stream is received.
+
+**Residual risk:**
+- Local attacker with filesystem access can bypass the sidecar. This is inherent to sidecar architectures and mitigated by island mode for high-security environments.
+- SSE streaming governance is eventual (validated after full buffering), not inline.
+
 ## Out of Scope
 
 - Content safety / prompt injection within the text domain

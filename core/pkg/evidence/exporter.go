@@ -10,8 +10,9 @@ import (
 	"sort"
 	"time"
 
-	"github.com/google/uuid"
+	"github.com/Mindburn-Labs/helm/core/pkg/canonicalize"
 	"github.com/Mindburn-Labs/helm/core/pkg/provenance"
+	"github.com/google/uuid"
 )
 
 // BundleType defines the purpose of the evidence bundle.
@@ -78,7 +79,7 @@ func (e *DefaultExporter) ExportSOC2(ctx context.Context, traceID string, envelo
 	}
 
 	for i, env := range envelopes {
-		data, err := json.Marshal(env)
+		data, err := canonicalize.JCS(env)
 		if err != nil {
 			return nil, fmt.Errorf("evidence export: marshal envelope %d: %w", i, err)
 		}
@@ -110,7 +111,7 @@ func (e *DefaultExporter) ExportIncidentReport(ctx context.Context, traceID stri
 		SignaturePublicKey: e.signer.PublicKey(),
 	}
 
-	data, err := json.Marshal(diagnostics)
+	data, err := canonicalize.JCS(diagnostics)
 	if err != nil {
 		return nil, fmt.Errorf("evidence export: marshal diagnostics: %w", err)
 	}
@@ -157,7 +158,7 @@ func sealBundle(bundle *Bundle, signer BundleSigner) error {
 		payload.Artifacts = append(payload.Artifacts, artifactSig{Name: a.Name, Hash: a.Hash})
 	}
 
-	msg, err := json.Marshal(payload)
+	msg, err := canonicalize.JCS(payload)
 	if err != nil {
 		return fmt.Errorf("evidence export: seal marshal failed: %w", err)
 	}

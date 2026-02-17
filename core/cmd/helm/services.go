@@ -21,6 +21,7 @@ import (
 	"github.com/Mindburn-Labs/helm/core/pkg/guardian"
 	"github.com/Mindburn-Labs/helm/core/pkg/identity"
 	"github.com/Mindburn-Labs/helm/core/pkg/kernelruntime"
+	"github.com/Mindburn-Labs/helm/core/pkg/kms"
 	"github.com/Mindburn-Labs/helm/core/pkg/merkle"
 	"github.com/Mindburn-Labs/helm/core/pkg/metering"
 	"github.com/Mindburn-Labs/helm/core/pkg/observability"
@@ -76,7 +77,7 @@ func NewServices(ctx context.Context, db *sql.DB, artStore artifacts.Store, mete
 
 	// --- 1. Config ---
 	s.Config = config.Load()
-	logger.Info("subsystem ready", "component"," Config loaded")
+	logger.Info("subsystem ready", "component", " Config loaded")
 
 	// --- 2. Observability ---
 	obsCfg := observability.DefaultConfig()
@@ -85,7 +86,7 @@ func NewServices(ctx context.Context, db *sql.DB, artStore artifacts.Store, mete
 		logger.Warn("Observability init skipped (no OTLP endpoint)", "error", err)
 	} else {
 		s.Observability = obs
-		logger.Info("subsystem ready", "component"," Observability provider initialized")
+		logger.Info("subsystem ready", "component", " Observability provider initialized")
 	}
 
 	// --- 3. Identity ---
@@ -94,7 +95,7 @@ func NewServices(ctx context.Context, db *sql.DB, artStore artifacts.Store, mete
 		return nil, fmt.Errorf("identity: %w", err)
 	}
 	s.Identity = ks
-	logger.Info("subsystem ready", "component"," Identity KeySet initialized")
+	logger.Info("subsystem ready", "component", " Identity KeySet initialized")
 
 	// --- 4. Tenants ---
 	prov := tenants.NewPostgresProvisioner(db)
@@ -102,43 +103,45 @@ func NewServices(ctx context.Context, db *sql.DB, artStore artifacts.Store, mete
 		logger.Warn("Tenants table init (may already exist)", "error", err)
 	}
 	s.Tenants = prov
-	logger.Info("subsystem ready", "component"," Tenant Provisioner initialized")
+	logger.Info("subsystem ready", "component", " Tenant Provisioner initialized")
 
 	// --- 5. Authorization ---
 	s.Authz = authz.NewEngine()
-	logger.Info("subsystem ready", "component"," ReBAC Authorization Engine initialized")
+	logger.Info("subsystem ready", "component", " ReBAC Authorization Engine initialized")
 
-	// --- 6. Credentials ---
-	credKeyHex := os.Getenv("CREDENTIALS_ENCRYPTION_KEY")
-	if credKeyHex == "" {
-		logger.Warn("CREDENTIALS_ENCRYPTION_KEY not set — credentials store DISABLED. Set a 64-char hex key for production.")
+	// --- 6. Credentials (CRED-001: KMS-backed key management) ---
+	keystorePath := "data/keys/credentials.keystore.json"
+	keyManager, kmsErr := kms.NewLocalKMS(keystorePath)
+	if kmsErr != nil {
+		logger.Warn("KMS init failed — credentials store DISABLED", "error", kmsErr)
 	} else {
-		encKey, hexErr := hex.DecodeString(credKeyHex)
-		if hexErr != nil || len(encKey) != 32 {
-			logger.Warn("CREDENTIALS_ENCRYPTION_KEY invalid (must be 64 hex chars / 32 bytes) — credentials store DISABLED")
-		} else {
-			credStore, err := credentials.NewStore(db, encKey)
-			if err != nil {
-				logger.Warn("Credentials store init", "error", err)
-			} else {
-				s.Creds = credentials.NewHandler(credStore)
-				logger.Info("subsystem ready", "component"," Credentials Handler initialized")
+		// Migration: if legacy env key exists, import it as version 0
+		credKeyHex := os.Getenv("CREDENTIALS_ENCRYPTION_KEY")
+		if credKeyHex != "" {
+			encKey, hexErr := hex.DecodeString(credKeyHex)
+			if hexErr == nil && len(encKey) == 32 {
+				_ = keyManager.ImportKey(encKey, 0)
+				logger.Info("KMS: imported legacy env key as version 0")
 			}
 		}
+
+		credStore := credentials.NewStoreWithKMS(db, keyManager)
+		s.Creds = credentials.NewHandler(credStore)
+		logger.Info("subsystem ready", "component", " Credentials Handler initialized (KMS-backed)")
 	}
 
 	// --- 7. Budget ---
 	s.BudgetStore = budget.NewPostgresStorage(db)
 	s.BudgetEnforcer = budget.NewSimpleEnforcer(s.BudgetStore)
-	logger.Info("subsystem ready", "component"," Budget Enforcer initialized (Postgres)")
+	logger.Info("subsystem ready", "component", " Budget Enforcer initialized (Postgres)")
 
 	// --- 8. Tiers ---
 	s.Tiers = &tiers.Free
-	logger.Info("subsystem ready", "component"," Tier definitions loaded")
+	logger.Info("subsystem ready", "component", " Tier definitions loaded")
 
 	// --- 9. Memory ---
 	s.MemoryAPI = api.NewMemoryService()
-	logger.Info("subsystem ready", "component"," Memory Service initialized (stub)")
+	logger.Info("subsystem ready", "component", " Memory Service initialized (stub)")
 
 	// --- 10. Sandbox ---
 	sandboxConfig := sandbox.SandboxConfig{
@@ -150,7 +153,7 @@ func NewServices(ctx context.Context, db *sql.DB, artStore artifacts.Store, mete
 	if err != nil {
 		return nil, fmt.Errorf("sandbox init: %w", err)
 	}
-	logger.Info("subsystem ready", "component"," Sandbox initialized")
+	logger.Info("subsystem ready", "component", " Sandbox initialized")
 
 	// --- 11. Boundary ---
 	defaultBoundaryPolicy := &boundary.PerimeterPolicy{
@@ -164,18 +167,18 @@ func NewServices(ctx context.Context, db *sql.DB, artStore artifacts.Store, mete
 	} else {
 		s.BoundaryEnforcer = perimEnforcer
 	}
-	logger.Info("subsystem ready", "component"," Boundary Perimeter Enforcer initialized")
+	logger.Info("subsystem ready", "component", " Boundary Perimeter Enforcer initialized")
 
 	// --- 12. Merkle ---
 	initData := map[string]interface{}{"init": "helm-genesis"}
 	mt, _ := merkle.BuildMerkleTree(initData)
 	s.MerkleTree = mt
-	logger.Info("subsystem ready", "component"," Merkle Tree initialized")
+	logger.Info("subsystem ready", "component", " Merkle Tree initialized")
 
 	// --- 13. Obligation ---
 	obligationStore := obligation.NewMemoryStore()
 	s.Obligation = obligation.NewObligationEngine(obligationStore)
-	logger.Info("subsystem ready", "component"," Obligation Engine initialized")
+	logger.Info("subsystem ready", "component", " Obligation Engine initialized")
 
 	// --- 14. Evidence ---
 	evidenceKey := os.Getenv("EVIDENCE_SIGNING_KEY")
@@ -188,16 +191,16 @@ func NewServices(ctx context.Context, db *sql.DB, artStore artifacts.Store, mete
 		return nil, fmt.Errorf("evidence signer init: %w", err)
 	}
 	s.Evidence = evidence.NewExporter(evidenceSigner, evidenceSigner.KeyID)
-	logger.Info("subsystem ready", "component"," Evidence Exporter initialized")
+	logger.Info("subsystem ready", "component", " Evidence Exporter initialized")
 
 	// --- 15. SDK ---
 	s.SDK = sdk.NewPack("helm-sdk", "1.0.0", "HELM SDK")
-	logger.Info("subsystem ready", "component"," SDK initialized")
+	logger.Info("subsystem ready", "component", " SDK initialized")
 
 	// --- 16. Kernel Runtime ---
 	s.KernelRT = kernelruntime.New(s.Config)
-	logger.Info("subsystem ready", "component"," KernelRuntime initialized")
+	logger.Info("subsystem ready", "component", " KernelRuntime initialized")
 
-	logger.Info("subsystem ready", "component"," All subsystems initialized successfully")
+	logger.Info("subsystem ready", "component", " All subsystems initialized successfully")
 	return s, nil
 }

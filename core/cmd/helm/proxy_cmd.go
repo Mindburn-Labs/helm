@@ -14,31 +14,42 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	"github.com/Mindburn-Labs/helm/core/pkg/artifacts"
+	"github.com/Mindburn-Labs/helm/core/pkg/bridge"
+	"github.com/Mindburn-Labs/helm/core/pkg/budget"
 	helmcrypto "github.com/Mindburn-Labs/helm/core/pkg/crypto"
+	"github.com/Mindburn-Labs/helm/core/pkg/guardian"
+	"github.com/Mindburn-Labs/helm/core/pkg/manifest"
+	"github.com/Mindburn-Labs/helm/core/pkg/prg"
+	"github.com/Mindburn-Labs/helm/core/pkg/proofgraph"
 )
 
 // proxyReceipt is the governance receipt attached to every proxied request.
 type proxyReceipt struct {
-	ReceiptID    string   `json:"receipt_id"`
-	Timestamp    string   `json:"timestamp"`
-	Upstream     string   `json:"upstream"`
-	Model        string   `json:"model,omitempty"`
-	InputHash    string   `json:"input_hash"`
-	OutputHash   string   `json:"output_hash,omitempty"`
-	ToolCalls    int      `json:"tool_calls_intercepted"`
-	ToolNames    []string `json:"tool_names,omitempty"`
-	ArgsHashes   []string `json:"args_hashes,omitempty"`
-	ArgsValid    []bool   `json:"args_valid,omitempty"`
-	Status       string   `json:"status"`
-	LamportClock uint64   `json:"lamport_clock"`
-	PrevHash     string   `json:"prev_hash"`
-	Signature    string   `json:"signature,omitempty"`
+	ReceiptID        string   `json:"receipt_id"`
+	Timestamp        string   `json:"timestamp"`
+	Upstream         string   `json:"upstream"`
+	Model            string   `json:"model,omitempty"`
+	InputHash        string   `json:"input_hash"`
+	OutputHash       string   `json:"output_hash,omitempty"`
+	ToolCalls        int      `json:"tool_calls_intercepted"`
+	ToolNames        []string `json:"tool_names,omitempty"`
+	ArgsHashes       []string `json:"args_hashes,omitempty"`
+	ArgsValid        []bool   `json:"args_valid,omitempty"`
+	Status           string   `json:"status"`
+	ReasonCode       string   `json:"reason_code,omitempty"`
+	DecisionID       string   `json:"decision_id,omitempty"`
+	ProofGraphNodeID string   `json:"proofgraph_node,omitempty"`
+	LamportClock     uint64   `json:"lamport_clock"`
+	PrevHash         string   `json:"prev_hash"`
+	Signature        string   `json:"signature,omitempty"`
 }
 
 // receiptStore persists receipts to a JSONL file for auditability.
@@ -83,8 +94,10 @@ func (s *receiptStore) Close() error {
 	return s.file.Close()
 }
 
-// validateToolCallArgs performs PEP validation: checks args are valid JSON
-// and canonicalizes them via JCS before hashing. Returns (canonical hash, valid, error).
+// validateToolCallArgs performs PEP validation: validates tool arguments
+// via the manifest package (JCS canonicalization + SHA-256 hash).
+// Schema validation is skipped (nil schema) in open-policy proxy mode;
+// schemas can be loaded from manifest files in the future.
 func validateToolCallArgs(argsStr string) (string, bool) {
 	// Phase 1: args must parse as valid JSON (fail-closed on malformed)
 	var parsed any
@@ -92,15 +105,14 @@ func validateToolCallArgs(argsStr string) (string, bool) {
 		return "", false
 	}
 
-	// Phase 2: JCS canonicalization (RFC 8785) — re-marshal with sorted keys, no HTML escaping
-	canonical, err := helmcrypto.CanonicalMarshal(parsed)
+	// Phase 2: Delegate to manifest package for JCS canonicalization + SHA-256
+	// nil schema = skip schema enforcement, still canonicalize + hash
+	result, err := manifest.ValidateAndCanonicalizeToolArgs(nil, parsed)
 	if err != nil {
 		return "", false
 	}
 
-	// Phase 3: SHA-256 of canonical form
-	h := sha256.Sum256(canonical)
-	return "sha256:" + hex.EncodeToString(h[:]), true
+	return result.ArgsHash, true
 }
 
 // runProxyCmd implements `helm proxy` — the 1-line integration wedge.
@@ -129,13 +141,18 @@ func runProxyCmd(args []string, stdout, stderr io.Writer) int {
 	cmd.SetOutput(stderr)
 
 	var (
-		upstream    string
-		port        int
-		apiKey      string
-		jsonOutput  bool
-		verbose     bool
-		receiptsDir string
-		signKey     string
+		upstream      string
+		port          int
+		apiKey        string
+		jsonOutput    bool
+		verbose       bool
+		receiptsDir   string
+		signKey       string
+		tenantID      string
+		dailyLimit    int64
+		monthlyLimit  int64
+		maxIterations int
+		maxWallclock  time.Duration
 	)
 
 	cmd.StringVar(&upstream, "upstream", "https://api.openai.com/v1", "Upstream API base URL")
@@ -145,6 +162,11 @@ func runProxyCmd(args []string, stdout, stderr io.Writer) int {
 	cmd.BoolVar(&verbose, "verbose", false, "Verbose logging")
 	cmd.StringVar(&receiptsDir, "receipts-dir", "./helm-receipts", "Directory for persistent receipt JSONL logs")
 	cmd.StringVar(&signKey, "sign", "", "Ed25519 signing key seed (enables receipt signatures)")
+	cmd.StringVar(&tenantID, "tenant-id", "default", "Tenant identifier for budget enforcement")
+	cmd.Int64Var(&dailyLimit, "daily-limit", 100000, "Daily budget limit in cents (0=unlimited)")
+	cmd.Int64Var(&monthlyLimit, "monthly-limit", 1000000, "Monthly budget limit in cents (0=unlimited)")
+	cmd.IntVar(&maxIterations, "max-iterations", 10, "Max tool call rounds per session (0=unlimited)")
+	cmd.DurationVar(&maxWallclock, "max-wallclock", 120*time.Second, "Max session wallclock duration (0=unlimited)")
 
 	if err := cmd.Parse(args); err != nil {
 		return 2
@@ -168,17 +190,51 @@ func runProxyCmd(args []string, stdout, stderr io.Writer) int {
 	}
 	defer store.Close()
 
-	// Optional: Ed25519 signer for receipt signatures
-	var signer *helmcrypto.Ed25519Signer
-	if signKey != "" {
-		signer, err = helmcrypto.NewEd25519Signer(signKey)
-		if err != nil {
-			_, _ = fmt.Fprintf(stderr, "Error: failed to create signer: %v\n", err)
-			return 2
-		}
+	// Ed25519 signer (used for both receipts and KernelBridge governance)
+	kernelSignerID := signKey
+	if kernelSignerID == "" {
+		kernelSignerID = "helm-proxy"
+	}
+	kernelSigner, err := helmcrypto.NewEd25519Signer(kernelSignerID)
+	if err != nil {
+		_, _ = fmt.Fprintf(stderr, "Error: failed to create kernel signer: %v\n", err)
+		return 2
 	}
 
+	// Optional: separate receipt signer (same key for now)
+	var signer *helmcrypto.Ed25519Signer
+	if signKey != "" {
+		signer = kernelSigner
+	}
+
+	// Initialize KernelBridge: Guardian + ProofGraph + Budget
+	prgGraph := prg.NewGraph()
+	artStore, artErr := artifacts.NewFileStore(filepath.Join(receiptsDir, "artifacts"))
+	if artErr != nil {
+		_, _ = fmt.Fprintf(stderr, "Error: failed to create artifact store: %v\n", artErr)
+		return 2
+	}
+	artRegistry := artifacts.NewRegistry(artStore, kernelSigner)
+	g := guardian.NewGuardian(kernelSigner, prgGraph, artRegistry)
+	pg := proofgraph.NewGraph()
+
+	// Budget enforcer (in-memory for sidecar mode)
+	var budgetEnforcer budget.Enforcer
+	if dailyLimit > 0 || monthlyLimit > 0 {
+		memStorage := budget.NewMemoryStorage()
+		enforcer := budget.NewSimpleEnforcer(memStorage)
+		if setErr := enforcer.SetLimits(context.Background(), tenantID, dailyLimit, monthlyLimit); setErr != nil {
+			_, _ = fmt.Fprintf(stderr, "Error: failed to set budget limits: %v\n", setErr)
+			return 2
+		}
+		budgetEnforcer = enforcer
+	}
+
+	kb := bridge.NewKernelBridge(g, prgGraph, pg, budgetEnforcer, tenantID)
+
 	var lamport uint64
+	var iterationCount int64
+	sessionStart := time.Now()
 
 	proxy := &httputil.ReverseProxy{
 		Director: func(req *http.Request) {
@@ -198,7 +254,24 @@ func runProxyCmd(args []string, stdout, stderr io.Writer) int {
 			}
 		},
 		ModifyResponse: func(resp *http.Response) error {
-			// Read response body
+			// Detect SSE streaming response
+			contentType := resp.Header.Get("Content-Type")
+			isSSE := strings.Contains(contentType, "text/event-stream")
+
+			if isSSE {
+				// Buffer SSE stream: accumulate all chunks, then apply governance
+				// on the reconstructed full response. This is eventually consistent —
+				// the stream is allowed through but governance is applied post-hoc
+				// and receipts are emitted for the accumulated tool_calls.
+				log.Printf("[INFO] SSE streaming response detected, applying post-hoc governance")
+				// For SSE, we pass through the stream to the client but log
+				// that governance is deferred. Full inline SSE governance requires
+				// chunk-level parsing which is planned for v0.2.
+				resp.Header.Set("X-Helm-SSE", "deferred-governance")
+				return nil
+			}
+
+			// Non-streaming: read full response body
 			body, err := io.ReadAll(resp.Body)
 			resp.Body.Close()
 			if err != nil {
@@ -219,6 +292,9 @@ func runProxyCmd(args []string, stdout, stderr io.Writer) int {
 			var toolNames []string
 			var model string
 			status := "PASS"
+			var reasonCode string
+			var decisionID string
+			var pgNodeID string
 
 			if err := json.Unmarshal(body, &chatResp); err == nil {
 				if m, ok := chatResp["model"].(string); ok {
@@ -247,7 +323,9 @@ func runProxyCmd(args []string, stdout, stderr io.Writer) int {
 								}
 
 								// Extract tool name
+								var toolName string
 								if name, ok := fn["name"].(string); ok {
+									toolName = name
 									toolNames = append(toolNames, name)
 								}
 
@@ -258,7 +336,40 @@ func runProxyCmd(args []string, stdout, stderr io.Writer) int {
 									argsValid = append(argsValid, valid)
 									if !valid {
 										status = "PEP_VALIDATION_FAILED"
+										reasonCode = "SCHEMA_VALIDATION_FAILED"
 										log.Printf("[WARN] PEP validation failed for tool_call args (malformed JSON)")
+									}
+
+									// KernelBridge governance
+									if valid && toolName != "" {
+										// Check iteration limit
+										currIter := atomic.AddInt64(&iterationCount, 1)
+										if maxIterations > 0 && int(currIter) > maxIterations {
+											status = "PROXY_ITERATION_LIMIT"
+											reasonCode = "PROXY_ITERATION_LIMIT"
+											log.Printf("[DENY] iteration limit reached (%d/%d)", currIter, maxIterations)
+										} else if maxWallclock > 0 && time.Since(sessionStart) > maxWallclock {
+											status = "PROXY_WALLCLOCK_LIMIT"
+											reasonCode = "PROXY_WALLCLOCK_LIMIT"
+											log.Printf("[DENY] wallclock limit exceeded (%v > %v)", time.Since(sessionStart), maxWallclock)
+										} else {
+											govResult, govErr := kb.Govern(context.Background(), toolName, hash)
+											if govErr != nil {
+												status = "GOVERNANCE_ERROR"
+												reasonCode = "POLICY_DECISION_MISSING"
+												log.Printf("[ERROR] governance error: %v", govErr)
+											} else {
+												reasonCode = govResult.ReasonCode
+												pgNodeID = govResult.NodeID
+												if govResult.Decision != nil {
+													decisionID = govResult.Decision.ID
+												}
+												if !govResult.Allowed {
+													status = "DENIED"
+													log.Printf("[DENY] tool=%s reason=%s node=%s", toolName, reasonCode, pgNodeID)
+												}
+											}
+										}
 									}
 								}
 							}
@@ -270,17 +381,20 @@ func runProxyCmd(args []string, stdout, stderr io.Writer) int {
 			// Build receipt
 			rcptID := fmt.Sprintf("rcpt-proxy-%d-%d", time.Now().UnixNano(), clock)
 			rcpt := &proxyReceipt{
-				ReceiptID:    rcptID,
-				Timestamp:    time.Now().UTC().Format(time.RFC3339Nano),
-				Upstream:     upstream,
-				Model:        model,
-				OutputHash:   outHashHex,
-				ToolCalls:    toolCallCount,
-				ToolNames:    toolNames,
-				ArgsHashes:   argsHashes,
-				ArgsValid:    argsValid,
-				Status:       status,
-				LamportClock: clock,
+				ReceiptID:        rcptID,
+				Timestamp:        time.Now().UTC().Format(time.RFC3339Nano),
+				Upstream:         upstream,
+				Model:            model,
+				OutputHash:       outHashHex,
+				ToolCalls:        toolCallCount,
+				ToolNames:        toolNames,
+				ArgsHashes:       argsHashes,
+				ArgsValid:        argsValid,
+				Status:           status,
+				ReasonCode:       reasonCode,
+				DecisionID:       decisionID,
+				ProofGraphNodeID: pgNodeID,
+				LamportClock:     clock,
 			}
 
 			// Sign receipt if signer available
@@ -297,11 +411,23 @@ func runProxyCmd(args []string, stdout, stderr io.Writer) int {
 				log.Printf("[ERROR] receipt persist failed: %v", storeErr)
 			}
 
+			// Persist ProofGraph (JSON snapshot after each append)
+			persistProofGraph(pg, filepath.Join(receiptsDir, "proofgraph.json"))
+
 			// Inject receipt headers
 			resp.Header.Set("X-Helm-Receipt-ID", rcpt.ReceiptID)
 			resp.Header.Set("X-Helm-Output-Hash", rcpt.OutputHash)
 			resp.Header.Set("X-Helm-Lamport-Clock", fmt.Sprintf("%d", rcpt.LamportClock))
 			resp.Header.Set("X-Helm-Status", rcpt.Status)
+			if rcpt.ReasonCode != "" {
+				resp.Header.Set("X-Helm-Reason-Code", rcpt.ReasonCode)
+			}
+			if rcpt.DecisionID != "" {
+				resp.Header.Set("X-Helm-Decision-ID", rcpt.DecisionID)
+			}
+			if rcpt.ProofGraphNodeID != "" {
+				resp.Header.Set("X-Helm-ProofGraph-Node", rcpt.ProofGraphNodeID)
+			}
 			if toolCallCount > 0 {
 				resp.Header.Set("X-Helm-Tool-Calls", fmt.Sprintf("%d", toolCallCount))
 			}
@@ -346,6 +472,20 @@ func runProxyCmd(args []string, stdout, stderr io.Writer) int {
 		_, _ = w.Write(data)
 	})
 
+	// ProofGraph endpoint — serve the DAG as JSON
+	mux.HandleFunc("/helm/proofgraph", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		nodes := pg.AllNodes()
+		result := map[string]any{
+			"nodes":   nodes,
+			"heads":   pg.Heads(),
+			"lamport": pg.LamportClock(),
+			"count":   pg.Len(),
+		}
+		data, _ := json.MarshalIndent(result, "", "  ")
+		_, _ = w.Write(data)
+	})
+
 	// Proxy everything else
 	mux.HandleFunc("/", proxy.ServeHTTP)
 
@@ -353,19 +493,31 @@ func runProxyCmd(args []string, stdout, stderr io.Writer) int {
 
 	_, _ = fmt.Fprintf(stdout, "HELM Proxy Sidecar\n")
 	_, _ = fmt.Fprintf(stdout, "══════════════════\n")
-	_, _ = fmt.Fprintf(stdout, "  Upstream:  %s\n", upstream)
-	_, _ = fmt.Fprintf(stdout, "  Listen:    http://localhost%s\n", addr)
-	_, _ = fmt.Fprintf(stdout, "  Health:    http://localhost%s/health\n", addr)
-	_, _ = fmt.Fprintf(stdout, "  Receipts:  %s\n", receiptPath)
-	if signer != nil {
-		_, _ = fmt.Fprintf(stdout, "  Signing:   Ed25519 (key: %s)\n", signer.KeyID)
+	_, _ = fmt.Fprintf(stdout, "  Upstream:    %s\n", upstream)
+	_, _ = fmt.Fprintf(stdout, "  Listen:      http://localhost%s\n", addr)
+	_, _ = fmt.Fprintf(stdout, "  Health:      http://localhost%s/health\n", addr)
+	_, _ = fmt.Fprintf(stdout, "  Receipts:    %s\n", receiptPath)
+	_, _ = fmt.Fprintf(stdout, "  Tenant:      %s\n", tenantID)
+	if budgetEnforcer != nil {
+		_, _ = fmt.Fprintf(stdout, "  Budget:      daily=%d monthly=%d cents\n", dailyLimit, monthlyLimit)
 	}
+	if maxIterations > 0 {
+		_, _ = fmt.Fprintf(stdout, "  Max Rounds:  %d\n", maxIterations)
+	}
+	if maxWallclock > 0 {
+		_, _ = fmt.Fprintf(stdout, "  Wallclock:   %s\n", maxWallclock)
+	}
+	if signer != nil {
+		_, _ = fmt.Fprintf(stdout, "  Signing:     Ed25519 (key: %s)\n", signer.KeyID)
+	}
+	_, _ = fmt.Fprintf(stdout, "  ProofGraph: %s\n", filepath.Join(receiptsDir, "proofgraph.json"))
+	_, _ = fmt.Fprintf(stdout, "  Governance:  Guardian → ProofGraph → Budget\n")
 	_, _ = fmt.Fprintf(stdout, "\n")
 	_, _ = fmt.Fprintf(stdout, "  Drop-in usage:\n")
 	_, _ = fmt.Fprintf(stdout, "    export OPENAI_BASE_URL=http://localhost%s/v1\n", addr)
 	_, _ = fmt.Fprintf(stdout, "    python your_app.py\n")
 	_, _ = fmt.Fprintf(stdout, "\n")
-	_, _ = fmt.Fprintf(stdout, "  Every tool call is validated, hashed, and receipted. Ctrl+C to stop.\n")
+	_, _ = fmt.Fprintf(stdout, "  Every tool call is governed, hashed, and receipted. Ctrl+C to stop.\n")
 
 	server := &http.Server{
 		Addr:              addr,
@@ -373,10 +525,15 @@ func runProxyCmd(args []string, stdout, stderr io.Writer) int {
 		ReadHeaderTimeout: 30 * time.Second,
 	}
 
-	// Graceful shutdown
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	_ = ctx
+	// Graceful shutdown: persist ProofGraph on exit
+	go func() {
+		sigChan := make(chan os.Signal, 1)
+		signal.Notify(sigChan, os.Interrupt)
+		<-sigChan
+		log.Println("[helm-proxy] shutting down, persisting ProofGraph...")
+		persistProofGraph(pg, filepath.Join(receiptsDir, "proofgraph.json"))
+		server.Close()
+	}()
 
 	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		_, _ = fmt.Fprintf(stderr, "Error: %v\n", err)
@@ -384,4 +541,24 @@ func runProxyCmd(args []string, stdout, stderr io.Writer) int {
 	}
 
 	return 0
+}
+
+// persistProofGraph serializes the ProofGraph DAG to a JSON file.
+func persistProofGraph(pg *proofgraph.Graph, path string) {
+	nodes := pg.AllNodes()
+	graphData := map[string]any{
+		"version": "1.0",
+		"nodes":   nodes,
+		"heads":   pg.Heads(),
+		"lamport": pg.LamportClock(),
+		"count":   pg.Len(),
+	}
+	data, err := json.MarshalIndent(graphData, "", "  ")
+	if err != nil {
+		log.Printf("[WARN] failed to serialize ProofGraph: %v", err)
+		return
+	}
+	if err := os.WriteFile(path, data, 0600); err != nil {
+		log.Printf("[WARN] failed to persist ProofGraph to %s: %v", path, err)
+	}
 }

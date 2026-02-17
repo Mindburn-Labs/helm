@@ -35,7 +35,7 @@ func TestBridge_Gating(t *testing.T) {
 
 	// Use empty store for test
 	// NewSafeExecutor(verifier, driver, receiptStore, artStore, outbox, hash, audit)
-	exec := executor.NewSafeExecutor(verifier, signer, mockDriver, nil, nil, nil, "", nil, nil, nil)
+	exec := executor.NewSafeExecutor(verifier, signer, mockDriver, nil, nil, nil, "", nil, nil, nil, nil)
 	catalog := mcp.NewInMemoryCatalog()
 
 	// NewKernelBridge(ledger, planner, executor, catalog, guardian, verifier, limiter)

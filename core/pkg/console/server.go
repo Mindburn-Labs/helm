@@ -236,8 +236,8 @@ func Start(port int, ledger ledger.Ledger, reg registry.Registry, uiAdapter ui.U
 	// Production HTTP server with explicit timeouts.
 	authHandler := auth.NewMiddleware(validator)(mux)
 
-	// Public Routes Bypass (for Demo Mode)
-	// TODO: Move this to a proper ACL middleware or config
+	// Public Routes Bypass — endpoints that do not require authentication.
+	// These are intentionally unauthenticated for demo, health, and read-only proof access.
 	publicPaths := []string{
 		"/demo",
 		"/v1/tools/execute",
@@ -808,9 +808,28 @@ func (s *Server) handleMetricsDashboardAPI(w http.ResponseWriter, r *http.Reques
 }
 
 // Phase 6: Chaos Injection API (burns error budget to test degradation behavior)
+// SECURITY: Restricted to admin role only (CONSOLE-001).
 func (s *Server) handleChaosInjectAPI(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "POST" {
 		api.WriteMethodNotAllowed(w)
+		return
+	}
+
+	// CONSOLE-001: Admin role restriction — chaos injection is a destructive operation
+	principal, err := auth.GetPrincipal(r.Context())
+	if err != nil {
+		api.WriteUnauthorized(w, "Authentication required for chaos injection")
+		return
+	}
+	isAdmin := false
+	for _, role := range principal.GetRoles() {
+		if role == "admin" {
+			isAdmin = true
+			break
+		}
+	}
+	if !isAdmin {
+		api.WriteForbidden(w, "Chaos injection requires admin role")
 		return
 	}
 

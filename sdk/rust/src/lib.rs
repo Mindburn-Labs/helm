@@ -156,6 +156,108 @@ impl HelmClient {
         })
     }
 
+    /// POST /api/v1/evidence/export — returns raw bytes
+    pub fn export_evidence(&self, session_id: Option<&str>) -> Result<Vec<u8>, HelmApiError> {
+        let body = serde_json::json!({
+            "session_id": session_id,
+            "format": "tar.gz"
+        });
+        let resp = self
+            .client
+            .post(self.url("/api/v1/evidence/export"))
+            .json(&body)
+            .send()
+            .map_err(|e| HelmApiError {
+                status: 0,
+                message: e.to_string(),
+                reason_code: ReasonCode::ErrorInternal,
+            })?;
+        let resp = self.check(resp)?;
+        resp.bytes()
+            .map(|b| b.to_vec())
+            .map_err(|e| HelmApiError {
+                status: 0,
+                message: e.to_string(),
+                reason_code: ReasonCode::ErrorInternal,
+            })
+    }
+
+    /// POST /api/v1/evidence/verify
+    pub fn verify_evidence(&self, bundle: &[u8]) -> Result<VerificationResult, HelmApiError> {
+        let form = reqwest::blocking::multipart::Form::new().part(
+            "bundle",
+            reqwest::blocking::multipart::Part::bytes(bundle.to_vec())
+                .file_name("pack.tar.gz")
+                .mime_str("application/octet-stream")
+                .unwrap(),
+        );
+        let resp = self
+            .client
+            .post(self.url("/api/v1/evidence/verify"))
+            .multipart(form)
+            .send()
+            .map_err(|e| HelmApiError {
+                status: 0,
+                message: e.to_string(),
+                reason_code: ReasonCode::ErrorInternal,
+            })?;
+        let resp = self.check(resp)?;
+        resp.json().map_err(|e| HelmApiError {
+            status: 0,
+            message: e.to_string(),
+            reason_code: ReasonCode::ErrorInternal,
+        })
+    }
+
+    /// POST /api/v1/replay/verify
+    pub fn replay_verify(&self, bundle: &[u8]) -> Result<VerificationResult, HelmApiError> {
+        let form = reqwest::blocking::multipart::Form::new().part(
+            "bundle",
+            reqwest::blocking::multipart::Part::bytes(bundle.to_vec())
+                .file_name("pack.tar.gz")
+                .mime_str("application/octet-stream")
+                .unwrap(),
+        );
+        let resp = self
+            .client
+            .post(self.url("/api/v1/replay/verify"))
+            .multipart(form)
+            .send()
+            .map_err(|e| HelmApiError {
+                status: 0,
+                message: e.to_string(),
+                reason_code: ReasonCode::ErrorInternal,
+            })?;
+        let resp = self.check(resp)?;
+        resp.json().map_err(|e| HelmApiError {
+            status: 0,
+            message: e.to_string(),
+            reason_code: ReasonCode::ErrorInternal,
+        })
+    }
+
+    /// GET /api/v1/proofgraph/receipts/{hash}
+    pub fn get_receipt(&self, receipt_hash: &str) -> Result<Receipt, HelmApiError> {
+        let resp = self
+            .client
+            .get(self.url(&format!(
+                "/api/v1/proofgraph/receipts/{}",
+                receipt_hash
+            )))
+            .send()
+            .map_err(|e| HelmApiError {
+                status: 0,
+                message: e.to_string(),
+                reason_code: ReasonCode::ErrorInternal,
+            })?;
+        let resp = self.check(resp)?;
+        resp.json().map_err(|e| HelmApiError {
+            status: 0,
+            message: e.to_string(),
+            reason_code: ReasonCode::ErrorInternal,
+        })
+    }
+
     /// POST /api/v1/conformance/run
     pub fn conformance_run(
         &self,
@@ -165,6 +267,31 @@ impl HelmClient {
             .client
             .post(self.url("/api/v1/conformance/run"))
             .json(req)
+            .send()
+            .map_err(|e| HelmApiError {
+                status: 0,
+                message: e.to_string(),
+                reason_code: ReasonCode::ErrorInternal,
+            })?;
+        let resp = self.check(resp)?;
+        resp.json().map_err(|e| HelmApiError {
+            status: 0,
+            message: e.to_string(),
+            reason_code: ReasonCode::ErrorInternal,
+        })
+    }
+
+    /// GET /api/v1/conformance/reports/{id}
+    pub fn get_conformance_report(
+        &self,
+        report_id: &str,
+    ) -> Result<ConformanceResult, HelmApiError> {
+        let resp = self
+            .client
+            .get(self.url(&format!(
+                "/api/v1/conformance/reports/{}",
+                report_id
+            )))
             .send()
             .map_err(|e| HelmApiError {
                 status: 0,

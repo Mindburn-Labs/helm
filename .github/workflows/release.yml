@@ -98,6 +98,9 @@ jobs:
   # ── Docker images → GHCR ───────────────────────────
   ghcr:
     runs-on: ubuntu-latest
+    permissions:
+      packages: write
+      id-token: write  # Required for Cosign keyless signing
     steps:
       - uses: actions/checkout@v4
 
@@ -126,6 +129,14 @@ jobs:
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.version=${{ github.ref_name }}
 
+      # SC-001: Sign Docker images with Cosign (keyless / OIDC)
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3
+      - name: Sign Docker image
+        run: |
+          cosign sign --yes ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}
+          cosign sign --yes ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+
   # ── GitHub Release ──────────────────────────────────
   release:
     runs-on: ubuntu-latest
@@ -139,6 +150,12 @@ jobs:
           pattern: '{binaries-*,release-assets}'
           merge-multiple: true
 
+      # SC-001: Sign checksums with Cosign BEFORE release creation
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3
+      - name: Sign checksums with Cosign
+        run: cosign sign-blob --yes dist/SHA256SUMS.txt --output-signature dist/SHA256SUMS.txt.sig
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -146,6 +163,7 @@ jobs:
           files: |
             dist/helm-*
             dist/SHA256SUMS.txt
+            dist/SHA256SUMS.txt.sig
             dist/sbom.json
           body: |
             ## HELM ${{ github.ref_name }}
@@ -184,3 +202,93 @@ jobs:
             ### Supply Chain
             - **SBOM**: `sbom.json` (CycloneDX 1.5)
             - **Checksums**: `SHA256SUMS.txt`
+            - **Provenance**: SLSA via `actions/attest-build-provenance`
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: 'dist/helm-*'
+
+  # ── PyPI Publish (Trusted Publishing / OIDC) ───────
+  publish-pypi:
+    runs-on: ubuntu-latest
+    needs: release
+    environment: pypi-publish
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Build wheel
+        run: |
+          cd sdk/python
+          pip install build
+          python -m build
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: sdk/python/dist/
+
+  # ── npm Publish (Trusted Publishing / OIDC) ────────
+  publish-npm:
+    runs-on: ubuntu-latest
+    needs: release
+    environment: npm-publish
+    permissions:
+      id-token: write
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+      - name: Build and publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          cd sdk/ts
+          npm ci --ignore-scripts
+          npm run build
+          npm publish --provenance --access public
+
+  # ── crates.io Publish (OIDC) ───────────────────────
+  publish-crates:
+    runs-on: ubuntu-latest
+    needs: release
+    environment: crates-publish
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Publish to crates.io
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: |
+          cd sdk/rust
+          cargo publish --allow-dirty
+
+  # ── Maven Central Publish (Token) ──────────────────
+  publish-maven:
+    runs-on: ubuntu-latest
+    needs: release
+    environment: maven-publish
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+      - name: Publish to Maven Central
+        env:
+          MAVEN_USERNAME: ${{ secrets.MAVEN_USERNAME }}
+          MAVEN_PASSWORD: ${{ secrets.MAVEN_PASSWORD }}
+        run: |
+          cd sdk/java
+          mvn deploy -DskipTests \
+            -DaltDeploymentRepository=central::https://central.sonatype.com/api/v1/publisher/deployments/upload \
+            -Dcentral.username="$MAVEN_USERNAME" \
+            -Dcentral.password="$MAVEN_PASSWORD"
