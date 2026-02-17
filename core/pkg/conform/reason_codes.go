@@ -51,6 +51,13 @@ const (
 	ReasonEnvelopeNotBound        = "ENVELOPE_NOT_BOUND"         // effect without active envelope
 	ReasonEnvelopeNotEnforced     = "ENVELOPE_NOT_ENFORCED"      // envelope constraints not checked
 	ReasonEnvelopeDenialNoReceipt = "ENVELOPE_DENIAL_NO_RECEIPT" // denial without receipt
+
+	// --- Proxy Governance ---
+	ReasonProxyToolAllowed     = "PROXY_TOOL_ALLOWED"     // tool call passed governance
+	ReasonProxyToolDenied      = "PROXY_TOOL_DENIED"      // tool call failed governance
+	ReasonProxyBudgetExhausted = "PROXY_BUDGET_EXHAUSTED" // budget limit hit via proxy
+	ReasonProxyIterationLimit  = "PROXY_ITERATION_LIMIT"  // max iterations reached
+	ReasonProxyWallclockLimit  = "PROXY_WALLCLOCK_LIMIT"  // session wallclock exceeded
 )
 
 // AllReasonCodes returns the full set of normative reason codes.
@@ -79,5 +86,10 @@ func AllReasonCodes() []string {
 		ReasonEnvelopeNotBound,
 		ReasonEnvelopeNotEnforced,
 		ReasonEnvelopeDenialNoReceipt,
+		ReasonProxyToolAllowed,
+		ReasonProxyToolDenied,
+		ReasonProxyBudgetExhausted,
+		ReasonProxyIterationLimit,
+		ReasonProxyWallclockLimit,
 	}
 }

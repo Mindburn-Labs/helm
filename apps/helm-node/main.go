@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/Mindburn-Labs/helm/core/pkg/agent"
 	"github.com/Mindburn-Labs/helm/core/pkg/artifacts"
@@ -204,7 +205,8 @@ func runServer() {
 		"sha256:production_verified_hash_v2",
 		nil, // audit
 		meter,
-		nil, // outputSchemaRegistry (MVP: no pinned output schemas)
+		nil,      // outputSchemaRegistry (MVP: no pinned output schemas)
+		time.Now, // Authority Clock
 	)
 
 	// 4. Console

@@ -286,6 +286,16 @@ func (g *Guardian) EvaluateDecision(ctx context.Context, req DecisionRequest) (*
 		envFP = "sha256:unconfigured"
 	}
 
+	// GOV-001: Content-addressed policy version derived from PRG rule hash.
+	// This ties each DecisionRecord to the exact policy state evaluated,
+	// rather than a hardcoded semver string.
+	policyVersion := "v1.0.0" // fallback
+	if g.prg != nil {
+		if hash, err := g.prg.ContentHash(); err == nil && hash != "" {
+			policyVersion = "sha256:" + hash
+		}
+	}
+
 	decision := &contracts.DecisionRecord{
 		ID:             fmt.Sprintf("dec-%d", g.clock.Now().UnixNano()),
 		Timestamp:      g.clock.Now(),
@@ -293,7 +303,7 @@ func (g *Guardian) EvaluateDecision(ctx context.Context, req DecisionRequest) (*
 		EffectDigest:   effectDigest,
 		InputContext:   req.Context,
 		EnvFingerprint: envFP,
-		PolicyVersion:  "v1.0.0",
+		PolicyVersion:  policyVersion,
 	}
 
 	// 3. F3: Evaluate Temporal Guardian if wired

@@ -6,8 +6,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
+	"strings"
 	"time"
+
+	"github.com/Mindburn-Labs/helm/core/pkg/canonicalize"
 )
 
 // Engine is the conformance engine per §11.1.
@@ -143,7 +148,15 @@ func (e *Engine) Run(opts *RunOptions) (*ConformanceReport, error) {
 		Duration:    e.clock().Sub(start),
 	}
 
-	// Write 01_SCORE.json
+	// Inject environment fingerprint for reproducibility
+	report.Metadata = map[string]any{
+		"go_version": runtime.Version(),
+		"go_os":      runtime.GOOS,
+		"go_arch":    runtime.GOARCH,
+		"git_commit": gitCommit(),
+	}
+
+	// Write 01_SCORE.json (JCS-canonicalized for deterministic bytes)
 	if err := writeScore(evidenceDir, report); err != nil {
 		return report, fmt.Errorf("failed to write score: %w", err)
 	}
@@ -182,13 +195,43 @@ func (e *Engine) resolveGates(opts *RunOptions) []string {
 	return result
 }
 
-// writeScore writes the 01_SCORE.json file.
+// writeScore writes the 01_SCORE.json file using JCS canonicalization
+// for deterministic, byte-identical output across platforms.
 func writeScore(evidenceDir string, report *ConformanceReport) error {
-	scoreData, err := json.MarshalIndent(report, "", "  ")
+	// First marshal to get a map for JCS
+	data, err := json.Marshal(report)
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(filepath.Join(evidenceDir, "01_SCORE.json"), scoreData, 0600)
+	var asMap map[string]any
+	if err := json.Unmarshal(data, &asMap); err != nil {
+		return err
+	}
+
+	canonical, err := canonicalize.JCS(asMap)
+	if err != nil {
+		// Fallback to MarshalIndent if JCS fails
+		canonical, _ = json.MarshalIndent(report, "", "  ")
+	}
+
+	scorePath := filepath.Join(evidenceDir, "01_SCORE.json")
+	if err := os.WriteFile(scorePath, canonical, 0600); err != nil {
+		return err
+	}
+
+	// Write content hash alongside for verification
+	h := sha256.Sum256(canonical)
+	hashPath := filepath.Join(evidenceDir, "01_SCORE.json.sha256")
+	return os.WriteFile(hashPath, []byte(hex.EncodeToString(h[:])+"\n"), 0600)
+}
+
+// gitCommit returns the current git commit hash or "unknown".
+func gitCommit() string {
+	out, err := exec.Command("git", "rev-parse", "--short", "HEAD").Output()
+	if err != nil {
+		return "unknown"
+	}
+	return strings.TrimSpace(string(out))
 }
 
 // IndexEntry is a single artifact reference in 00_INDEX.json per §3.2.

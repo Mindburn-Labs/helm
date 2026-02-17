@@ -42,12 +42,14 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
       - name: Install and build
         run: |
           cd sdk/ts
           npm ci --ignore-scripts
           npm run build
+      - name: Test
+        run: cd sdk/ts && npm test -- --run
       - name: Pack check
         run: cd sdk/ts && npm pack --dry-run
 
@@ -63,8 +65,10 @@ jobs:
       - name: Install and import
         run: |
           cd sdk/python
-          pip install -e . --quiet
+          pip install -e .[dev] --quiet
           python -c "from helm_sdk import HelmClient; print('✅ import ok')"
+      - name: Test
+        run: cd sdk/python && pytest -v
 
   # ── Go ───────────────────────────────────────────────
   sdk-go:

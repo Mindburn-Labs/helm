@@ -30,6 +30,17 @@ coverage.html
 *.pprof
 *.prof
 
+# Internal docs (not for public OSS)
+/HELM_Investment_Memo*.md
+/HELM_Unified_Canonical_Standard_FINAL*.md
+/titan-*.md
+/CONFORMANCE.md
+/TCB_POLICY.md
+/mise.local.toml
+
+# Rust build artifacts
+sdk/rust/target/
+
 # Docker
 docker-compose.override.yml
 
@@ -41,6 +52,14 @@ docker-compose.override.yml
 # Artifacts (generated — not part of source)
 /artifacts/
 deps.txt
+sbom.json
+sbom.spdx.json
+
+# Generated binaries in core/
+core/helm
+
+# SDK generator temp
+.gen_tmp/
 
 # Temporary
 tmp/

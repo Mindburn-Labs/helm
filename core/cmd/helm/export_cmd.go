@@ -22,6 +22,11 @@ import (
 //	0 = export completed
 //	2 = runtime error
 func runExportCmd(args []string, stdout, stderr io.Writer) int {
+	// Support `helm export pack` subcommand (Gap #21 DoD)
+	if len(args) > 0 && args[0] == "pack" {
+		return handlePackCreate(args[1:])
+	}
+
 	cmd := flag.NewFlagSet("export", flag.ContinueOnError)
 	cmd.SetOutput(stderr)
 

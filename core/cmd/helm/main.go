@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
+	"flag"
 	"fmt"
 	"io"
 	"log"
@@ -10,7 +12,9 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
+	"time"
 
 	"github.com/Mindburn-Labs/helm/core/pkg/agent"
 	"github.com/Mindburn-Labs/helm/core/pkg/artifacts"
@@ -74,6 +78,8 @@ func Run(args []string, stdout, stderr io.Writer) int {
 		return 0
 	case "health":
 		return runHealthCmd(stdout, stderr)
+	case "control-room":
+		return runControlRoom(args[2:], stdout, stderr)
 	case "coverage":
 		handleCoverage(args[2:])
 		return 0
@@ -126,7 +132,187 @@ func handleCoverage(args []string) {
 }
 
 func handlePack(args []string) {
-	log.Println("[helm] pack manager: ready")
+	if len(args) == 0 {
+		fmt.Println("Usage: helm pack <create|verify> [options]")
+		fmt.Println("")
+		fmt.Println("Subcommands:")
+		fmt.Println("  create   Create a deterministic evidence pack (tar.gz)")
+		fmt.Println("  verify   Verify an evidence pack's integrity")
+		os.Exit(2)
+	}
+
+	switch args[0] {
+	case "create":
+		os.Exit(handlePackCreate(args[1:]))
+	case "verify":
+		os.Exit(handlePackVerify(args[1:]))
+	default:
+		fmt.Fprintf(os.Stderr, "Unknown pack subcommand: %s\n", args[0])
+		os.Exit(2)
+	}
+}
+
+func handlePackCreate(args []string) int {
+	cmd := flag.NewFlagSet("pack create", flag.ContinueOnError)
+	cmd.SetOutput(os.Stderr)
+
+	var (
+		sessionID   string
+		receiptsDir string
+		outPath     string
+		jsonOutput  bool
+	)
+
+	cmd.StringVar(&sessionID, "session", "", "Session ID for the evidence pack (REQUIRED)")
+	cmd.StringVar(&receiptsDir, "receipts", "", "Directory containing receipt files (REQUIRED)")
+	cmd.StringVar(&outPath, "out", "", "Output path for the tar.gz pack (REQUIRED)")
+	cmd.BoolVar(&jsonOutput, "json", false, "Output result as JSON")
+
+	if err := cmd.Parse(args); err != nil {
+		return 2
+	}
+
+	if sessionID == "" || receiptsDir == "" || outPath == "" {
+		fmt.Fprintln(os.Stderr, "Error: --session, --receipts, and --out are required")
+		cmd.Usage()
+		return 2
+	}
+
+	// Read all files from receipts directory
+	files := make(map[string][]byte)
+	err := filepath.Walk(receiptsDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() {
+			return nil
+		}
+		relPath, _ := filepath.Rel(receiptsDir, path)
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return fmt.Errorf("read %s: %w", relPath, err)
+		}
+		files[relPath] = data
+		return nil
+	})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error reading receipts: %v\n", err)
+		return 2
+	}
+
+	if len(files) == 0 {
+		fmt.Fprintln(os.Stderr, "Error: no files found in receipts directory")
+		return 2
+	}
+
+	// Auto-include proofgraph.json if it exists alongside receipts (Gap #22)
+	pgPath := filepath.Join(receiptsDir, "proofgraph.json")
+	if _, err := os.Stat(pgPath); err == nil {
+		if _, exists := files["proofgraph.json"]; !exists {
+			data, readErr := os.ReadFile(pgPath)
+			if readErr == nil {
+				files["proofgraph.json"] = data
+			}
+		}
+	}
+
+	// Auto-include trust_roots.json from artifacts if it exists (Gap #28)
+	for _, trustPath := range []string{
+		filepath.Join(receiptsDir, "..", "artifacts", "trust_roots.json"),
+		filepath.Join(receiptsDir, "trust_roots.json"),
+		"artifacts/trust_roots.json",
+	} {
+		if _, err := os.Stat(trustPath); err == nil {
+			if _, exists := files["trust_roots.json"]; !exists {
+				data, readErr := os.ReadFile(trustPath)
+				if readErr == nil {
+					files["trust_roots.json"] = data
+				}
+			}
+			break
+		}
+	}
+
+	// Create the pack
+	if err := ExportPack(sessionID, files, outPath); err != nil {
+		fmt.Fprintf(os.Stderr, "Error creating pack: %v\n", err)
+		return 2
+	}
+
+	if jsonOutput {
+		result := map[string]any{
+			"session_id": sessionID,
+			"pack_path":  outPath,
+			"file_count": len(files),
+			"status":     "created",
+		}
+		data, _ := json.MarshalIndent(result, "", "  ")
+		fmt.Println(string(data))
+	} else {
+		fmt.Printf("✅ Evidence pack created: %s (%d files)\n", outPath, len(files))
+	}
+
+	return 0
+}
+
+func handlePackVerify(args []string) int {
+	cmd := flag.NewFlagSet("pack verify", flag.ContinueOnError)
+	cmd.SetOutput(os.Stderr)
+
+	var (
+		bundlePath string
+		jsonOutput bool
+	)
+
+	cmd.StringVar(&bundlePath, "bundle", "", "Path to evidence pack tar.gz (REQUIRED)")
+	cmd.BoolVar(&jsonOutput, "json", false, "Output result as JSON")
+
+	if err := cmd.Parse(args); err != nil {
+		return 2
+	}
+
+	if bundlePath == "" {
+		fmt.Fprintln(os.Stderr, "Error: --bundle is required")
+		cmd.Usage()
+		return 2
+	}
+
+	manifest, err := VerifyPack(bundlePath)
+	if err != nil {
+		if jsonOutput {
+			result := map[string]any{
+				"bundle": bundlePath,
+				"valid":  false,
+				"error":  err.Error(),
+			}
+			data, _ := json.MarshalIndent(result, "", "  ")
+			fmt.Println(string(data))
+		} else {
+			fmt.Fprintf(os.Stderr, "❌ Verification failed: %v\n", err)
+		}
+		return 1
+	}
+
+	if jsonOutput {
+		result := map[string]any{
+			"bundle":      bundlePath,
+			"valid":       true,
+			"session_id":  manifest.SessionID,
+			"version":     manifest.Version,
+			"exported_at": manifest.ExportedAt,
+			"file_count":  len(manifest.FileHashes),
+		}
+		data, _ := json.MarshalIndent(result, "", "  ")
+		fmt.Println(string(data))
+	} else {
+		fmt.Printf("✅ Pack verified: %s\n", bundlePath)
+		fmt.Printf("   Session:  %s\n", manifest.SessionID)
+		fmt.Printf("   Version:  %s\n", manifest.Version)
+		fmt.Printf("   Exported: %s\n", manifest.ExportedAt)
+		fmt.Printf("   Files:    %d\n", len(manifest.FileHashes))
+	}
+
+	return 0
 }
 
 //nolint:gocognit,gocyclo
@@ -245,7 +431,8 @@ func runServer() {
 		"sha256:production_verified_hash_v2",
 		nil, // audit
 		meter,
-		nil, // outputSchemaRegistry (MVP: no pinned output schemas)
+		nil,      // outputSchemaRegistry (MVP: no pinned output schemas)
+		time.Now, // Authority Clock
 	)
 
 	// 4. Console

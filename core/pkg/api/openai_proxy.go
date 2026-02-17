@@ -23,10 +23,18 @@ type OpenAIMessage struct {
 }
 
 // OpenAIChatRequest is the OpenAI-compatible request format.
+// API-001/002: Includes tool_choice, parallel_tool_calls, and response_format
+// for upstream provider pass-through.
 type OpenAIChatRequest struct {
-	Model    string          `json:"model"`
-	Messages []OpenAIMessage `json:"messages"`
-	Stream   bool            `json:"stream,omitempty"`
+	Model             string          `json:"model"`
+	Messages          []OpenAIMessage `json:"messages"`
+	Stream            bool            `json:"stream,omitempty"`
+	ToolChoice        any             `json:"tool_choice,omitempty"`         // API-001: "auto", "none", "required", or {"type":"function","function":{"name":"..."}}
+	ParallelToolCalls *bool           `json:"parallel_tool_calls,omitempty"` // API-001: Enable/disable parallel tool execution
+	ResponseFormat    any             `json:"response_format,omitempty"`     // API-002: {"type":"json_object"} or {"type":"json_schema","json_schema":{...}}
+	MaxTokens         *int            `json:"max_tokens,omitempty"`
+	Temperature       *float64        `json:"temperature,omitempty"`
+	TopP              *float64        `json:"top_p,omitempty"`
 }
 
 // OpenAIChatResponse is the OpenAI-compatible response format.
@@ -47,9 +55,10 @@ type OpenAIChatResponse struct {
 	} `json:"usage"`
 }
 
-// HandleOpenAIProxy is the handler for /v1/chat/completions.
-// In production, this would forward to the upstream LLM while intercepting
-// tool calls through the PEP boundary.
+// HandleOpenAIProxy is the handler for /v1/chat/completions in server mode.
+// This is an in-process stub. For governed proxy mode with upstream forwarding,
+// use `helm proxy --upstream <url>` which provides full governance: Guardian,
+// ProofGraph, budget enforcement, and receipt generation.
 func HandleOpenAIProxy(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		WriteMethodNotAllowed(w)
@@ -66,8 +75,8 @@ func HandleOpenAIProxy(w http.ResponseWriter, r *http.Request) {
 		req.Model = "gpt-4"
 	}
 
-	// In the governed mode, every request passes through the PEP.
-	// For now, return a governed response indicating the proxy is active.
+	// In-process mode: return stub response directing to CLI proxy.
+	// For full governance, use: helm proxy --upstream <llm-api-url>
 	resp := OpenAIChatResponse{
 		ID:      fmt.Sprintf("chatcmpl-helm-%d", time.Now().UnixNano()),
 		Object:  "chat.completion",
@@ -82,7 +91,7 @@ func HandleOpenAIProxy(w http.ResponseWriter, r *http.Request) {
 		Index: 0,
 		Message: OpenAIMessage{
 			Role:    "assistant",
-			Content: "HELM governance proxy active. All tool calls are subject to PEP validation.",
+			Content: "HELM in-process proxy stub. For governed proxy mode with tool call interception, budget enforcement, and ProofGraph receipts, use: helm proxy --upstream <your-llm-api-url>",
 		},
 		FinishReason: "stop",
 	})

@@ -28,6 +28,7 @@ type OutputSchemaRegistry interface {
 
 // SafeExecutor enforces strict gating and authorized execution.
 // Per Section 1.4: Receipt policy enforcement is fail-closed.
+// Per KERNEL_TCB §3: uses injected authority clock, never wall-clock time.Now().
 type SafeExecutor struct {
 	verifier             crypto.Verifier
 	signer               crypto.Signer
@@ -40,10 +41,15 @@ type SafeExecutor struct {
 	policyEnforcer       *policies.PolicyEnforcer
 	meter                metering.Meter
 	outputSchemaRegistry OutputSchemaRegistry
+	clock                func() time.Time // Authority clock (KERNEL_TCB §3)
 }
 
 // NewSafeExecutor creates a new SafeExecutor.
-func NewSafeExecutor(verifier crypto.Verifier, signer crypto.Signer, driver ToolDriver, store ReceiptStore, artStore artifacts.Store, outbox OutboxStore, phenotypeHash string, auditLog crypto.AuditLog, meter metering.Meter, outputRegistry OutputSchemaRegistry) *SafeExecutor {
+// Uses an injected authority clock (KERNEL_TCB §3).
+func NewSafeExecutor(verifier crypto.Verifier, signer crypto.Signer, driver ToolDriver, store ReceiptStore, artStore artifacts.Store, outbox OutboxStore, phenotypeHash string, auditLog crypto.AuditLog, meter metering.Meter, outputRegistry OutputSchemaRegistry, clock func() time.Time) *SafeExecutor {
+	if clock == nil {
+		clock = time.Now // Fallback for safety, though strictly should be provided
+	}
 	return &SafeExecutor{
 		verifier:             verifier,
 		signer:               signer,
@@ -56,7 +62,15 @@ func NewSafeExecutor(verifier crypto.Verifier, signer crypto.Signer, driver Tool
 		policyEnforcer:       policies.NewPolicyEnforcer(true), // Strict mode enabled
 		meter:                meter,
 		outputSchemaRegistry: outputRegistry,
+		clock:                clock,
 	}
+}
+
+// WithClock overrides the clock for deterministic testing and production authority clock injection.
+// Per KERNEL_TCB §3: the kernel MUST NOT use wall-clock time.Now().
+func (e *SafeExecutor) WithClock(clock func() time.Time) *SafeExecutor {
+	e.clock = clock
+	return e
 }
 
 // Execute returns the Receipt (proof) and the Tool Result (Artifact), or error.
@@ -184,7 +198,7 @@ func (e *SafeExecutor) Execute(ctx context.Context, effect *contracts.Effect, de
 			TenantID:  tenantID,
 			EventType: metering.EventExecution,
 			Quantity:  1,
-			Timestamp: time.Now(),
+			Timestamp: e.clock(),
 			Metadata: map[string]any{
 				"tool":        toolName,
 				"decision_id": decision.ID,
@@ -239,7 +253,7 @@ func (e *SafeExecutor) validateGating(decision *contracts.DecisionRecord, intent
 	}
 
 	// 4. Expiration Check
-	if time.Now().After(intent.ExpiresAt) {
+	if e.clock().After(intent.ExpiresAt) {
 		return fmt.Errorf("execution blocked: intent expired at %s", intent.ExpiresAt)
 	}
 
@@ -295,7 +309,7 @@ func (e *SafeExecutor) createReceipt(ctx context.Context, decision *contracts.De
 		BlobHash:     blobHash,
 		OutputHash:   outputHash,
 		ArgsHash:     effect.ArgsHash, // Phase 2: PEP boundary hash bound into signed receipt
-		Timestamp:    time.Now(),
+		Timestamp:    e.clock(),
 		PrevHash:     prevHash,
 		LamportClock: lamportClock,
 	}

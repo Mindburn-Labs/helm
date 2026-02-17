@@ -1,7 +1,10 @@
 package prg
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
+	"sort"
 
 	pkg_artifact "github.com/Mindburn-Labs/helm/core/pkg/artifacts"
 )
@@ -74,6 +77,28 @@ func NewGraph() *Graph {
 	return &Graph{
 		Rules: make(map[string]RequirementSet),
 	}
+}
+
+// ContentHash computes a content-addressed hash of the entire policy graph.
+// GOV-001: Used by Guardian to tie DecisionRecords to exact policy state.
+func (g *Graph) ContentHash() (string, error) {
+	if len(g.Rules) == 0 {
+		return "", nil
+	}
+	// Sort rule keys for determinism
+	keys := make([]string, 0, len(g.Rules))
+	for k := range g.Rules {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	content := ""
+	for _, k := range keys {
+		rs := g.Rules[k]
+		content += k + "=" + rs.Hash() + ";"
+	}
+	h := sha256.Sum256([]byte(content))
+	return hex.EncodeToString(h[:]), nil
 }
 
 // BindByCapability explicitly binds a policy to a verified capability ID (GAP-05).

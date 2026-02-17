@@ -154,10 +154,31 @@ func (c *HelmClient) VerifyEvidence(bundle []byte) (*VerificationResult, error) 
 	return &out, err
 }
 
+// ReplayVerify calls POST /api/v1/replay/verify.
+func (c *HelmClient) ReplayVerify(bundle []byte) (*VerificationResult, error) {
+	var out VerificationResult
+	err := c.do("POST", "/api/v1/replay/verify", map[string]any{"bundle_b64": bundle}, &out)
+	return &out, err
+}
+
+// GetReceipt calls GET /api/v1/proofgraph/receipts/{hash}.
+func (c *HelmClient) GetReceipt(receiptHash string) (*Receipt, error) {
+	var out Receipt
+	err := c.do("GET", "/api/v1/proofgraph/receipts/"+receiptHash, nil, &out)
+	return &out, err
+}
+
 // ConformanceRun calls POST /api/v1/conformance/run.
 func (c *HelmClient) ConformanceRun(req ConformanceRequest) (*ConformanceResult, error) {
 	var out ConformanceResult
 	err := c.do("POST", "/api/v1/conformance/run", req, &out)
+	return &out, err
+}
+
+// GetConformanceReport calls GET /api/v1/conformance/reports/{id}.
+func (c *HelmClient) GetConformanceReport(reportID string) (*ConformanceResult, error) {
+	var out ConformanceResult
+	err := c.do("GET", "/api/v1/conformance/reports/"+reportID, nil, &out)
 	return &out, err
 }
 

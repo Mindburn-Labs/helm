@@ -16,6 +16,8 @@ import (
 	"os"
 	"sync"
 	"time"
+
+	"github.com/Mindburn-Labs/helm/core/pkg/kms"
 )
 
 // ProviderType represents supported credential providers.
@@ -65,7 +67,8 @@ type CredentialStatus struct {
 // Store manages encrypted credential storage.
 type Store struct {
 	db          *sql.DB
-	encKey      []byte
+	encKey      []byte      // legacy raw key (used when kmsManager is nil)
+	kmsManager  kms.Manager // CRED-001: KMS-backed encryption
 	mu          sync.RWMutex
 	envFallback bool // Allow fallback to env vars
 }
@@ -80,7 +83,7 @@ func WithEnvFallback(enabled bool) StoreOption {
 	}
 }
 
-// NewStore creates a new credential store.
+// NewStore creates a new credential store with a raw encryption key (legacy).
 // encryptionKey must be exactly 32 bytes for AES-256.
 func NewStore(db *sql.DB, encryptionKey []byte, opts ...StoreOption) (*Store, error) {
 	if len(encryptionKey) != 32 {
@@ -100,12 +103,33 @@ func NewStore(db *sql.DB, encryptionKey []byte, opts ...StoreOption) (*Store, er
 	return s, nil
 }
 
-// encrypt encrypts plaintext using AES-256-GCM.
+// NewStoreWithKMS creates a credential store backed by a KMS Manager (CRED-001).
+func NewStoreWithKMS(db *sql.DB, km kms.Manager, opts ...StoreOption) *Store {
+	s := &Store{
+		db:          db,
+		kmsManager:  km,
+		envFallback: true,
+	}
+
+	for _, opt := range opts {
+		opt(s)
+	}
+
+	return s
+}
+
+// encrypt encrypts plaintext using KMS (preferred) or legacy AES-256-GCM.
 func (s *Store) encrypt(plaintext string) (string, error) {
 	if plaintext == "" {
 		return "", nil
 	}
 
+	// CRED-001: Use KMS if available
+	if s.kmsManager != nil {
+		return s.kmsManager.Encrypt(plaintext)
+	}
+
+	// Legacy path: raw key
 	block, err := aes.NewCipher(s.encKey)
 	if err != nil {
 		return "", fmt.Errorf("failed to create cipher: %w", err)
@@ -125,12 +149,18 @@ func (s *Store) encrypt(plaintext string) (string, error) {
 	return base64.StdEncoding.EncodeToString(ciphertext), nil
 }
 
-// decrypt decrypts ciphertext using AES-256-GCM.
+// decrypt decrypts ciphertext using KMS (preferred) or legacy AES-256-GCM.
 func (s *Store) decrypt(ciphertext string) (string, error) {
 	if ciphertext == "" {
 		return "", nil
 	}
 
+	// CRED-001: Use KMS if available
+	if s.kmsManager != nil {
+		return s.kmsManager.Decrypt(ciphertext)
+	}
+
+	// Legacy path: raw key
 	data, err := base64.StdEncoding.DecodeString(ciphertext)
 	if err != nil {
 		return "", fmt.Errorf("failed to decode base64: %w", err)

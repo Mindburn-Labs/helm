@@ -2,7 +2,8 @@
 # Optimized for production API serving (no UI embedded)
 
 # Stage 1: Builder
-FROM golang:1.24-alpine AS builder
+# SC-004: Base images pinned by digest for supply chain integrity
+FROM golang:1.24-alpine@sha256:7772cb5322baa0cee6b21d2b6a97c2a4c2bcf3a3e78e63a0a25d9b5a6a8e4d2f AS builder
 
 WORKDIR /app
 
@@ -23,7 +24,7 @@ ENV GOARCH=amd64
 RUN go build -ldflags="-s -w" -trimpath -o /app/bin/helm ./core/cmd/helm
 
 # Stage 2: Runtime
-FROM alpine:3.21
+FROM alpine:3.21@sha256:a8560b36e8b8210634f77e6d2200d7f6996e8acda0e30167e34d5f2e6db205db
 
 WORKDIR /app
 

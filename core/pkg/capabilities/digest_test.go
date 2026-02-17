@@ -14,7 +14,7 @@ func TestExecutor_DigestMismatch_I14(t *testing.T) {
 	mockClient := &mockClient{}
 
 	// SafeExecutor signature: (verifier, client, store, artStore, outbox, hash, audit)
-	exec := executor.NewSafeExecutor(mockVerifier, mockVerifier, mockClient, nil, nil, nil, "hash-v1", nil, nil, nil)
+	exec := executor.NewSafeExecutor(mockVerifier, mockVerifier, mockClient, nil, nil, nil, "hash-v1", nil, nil, nil, nil)
 
 	// 2. Setup Decision with Digest
 	decision := &contracts.DecisionRecord{

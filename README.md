@@ -274,7 +274,7 @@ Full cutline: [docs/OSS_CUTLINE.md](docs/OSS_CUTLINE.md)
 ## Verification
 
 ```bash
-make test       # 58 packages, 0 failures
+make test       # 112 packages, 0 failures
 make crucible   # 12 use cases + conformance L1/L2
 make lint       # go vet, clean
 ```
@@ -330,7 +330,7 @@ OSS v0.1 targets L1/L2 core conformance. Spec contains L2/L3 and enterprise/2030
 - **Bounded compute gate** — WASI sandbox with gas/time/memory caps, deterministic traps on breach ([UC-005](docs/use_cases/UC-005_wasi_gas_exhaustion.sh))
 - **Schema drift fail-closed** — JCS canonicalization + SHA-256 on every tool call, both input and output ([UC-002](docs/use_cases/UC-002_schema_mismatch.sh))
 
-See also: [SECURITY.md](SECURITY.md) (vulnerability reporting) · [Threat Model](docs/THREAT_MODEL.md) (11 adversary classes)
+See also: [SECURITY.md](SECURITY.md) (vulnerability reporting) · [Threat Model](docs/THREAT_MODEL.md) (9 adversary classes)
 
 ---
 
