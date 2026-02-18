@@ -4,13 +4,12 @@ package executor
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
-	"encoding/json"
+	"fmt"
 	"time"
 
-	"github.com/google/uuid"
+	"github.com/Mindburn-Labs/helm/core/pkg/canonicalize"
 	"github.com/Mindburn-Labs/helm/core/pkg/contracts"
+	"github.com/google/uuid"
 )
 
 // EvidencePackProducer creates EvidencePacks for effect executions.
@@ -189,7 +188,8 @@ func (p *EvidencePackProducer) Produce(ctx context.Context, input *EvidencePackI
 	return pack, nil
 }
 
-// computeEvidencePackHash computes SHA-256 of the pack (excluding attestation).
+// computeEvidencePackHash computes SHA-256 of the pack (excluding attestation)
+// using JCS (RFC 8785) for deterministic canonicalization.
 func computeEvidencePackHash(pack *contracts.EvidencePack) (string, error) {
 	// Create copy without attestation for hashing
 	hashable := struct {
@@ -222,13 +222,12 @@ func computeEvidencePackHash(pack *contracts.EvidencePack) (string, error) {
 		BundledArtifacts: pack.BundledArtifacts,
 	}
 
-	bytes, err := json.Marshal(hashable)
+	data, err := canonicalize.JCS(hashable)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to canonicalize evidence pack: %w", err)
 	}
 
-	hash := sha256.Sum256(bytes)
-	return "sha256:" + hex.EncodeToString(hash[:]), nil
+	return "sha256:" + canonicalize.HashBytes(data), nil
 }
 
 // ValidateEvidencePack validates an EvidencePack for completeness.

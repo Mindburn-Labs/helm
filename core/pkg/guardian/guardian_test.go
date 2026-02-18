@@ -205,6 +205,52 @@ func TestGuardian_SignDecision(t *testing.T) {
 		assert.Contains(t, decision.Reason, "no policy defined")
 	})
 
+	t.Run("Success: CEL Expression", func(t *testing.T) {
+		// Rule: "cel_tool" requires a budget_id parameter in the effect
+		rule := prg.RequirementSet{
+			ID:    "req-cel",
+			Logic: prg.AND,
+			Requirements: []prg.Requirement{
+				{
+					ID:         "check-budget",
+					Expression: `input.effect.params.budget_id != ""`,
+				},
+			},
+		}
+		_ = ruleGraph.AddRule("cel_tool", rule)
+
+		decision := &contracts.DecisionRecord{ID: "dec-cel-1"}
+		effect := &contracts.Effect{
+			EffectType: "tool_call",
+			EffectID:   "eff-cel-1",
+			Params: map[string]any{
+				"tool_name": "cel_tool",
+				"budget_id": "test-budget",
+			},
+		}
+
+		err := subject.SignDecision(ctx, decision, effect, nil, nil)
+		require.NoError(t, err)
+		assert.Equal(t, "PASS", decision.Verdict)
+	})
+
+	t.Run("Fail: CEL Expression Violation", func(t *testing.T) {
+		decision := &contracts.DecisionRecord{ID: "dec-cel-2"}
+		effect := &contracts.Effect{
+			EffectType: "tool_call",
+			EffectID:   "eff-cel-2",
+			Params: map[string]any{
+				"tool_name": "cel_tool",
+				"budget_id": "", // Violation
+			},
+		}
+
+		err := subject.SignDecision(ctx, decision, effect, nil, nil)
+		require.NoError(t, err)
+		assert.Equal(t, "FAIL", decision.Verdict)
+		assert.Equal(t, "missing requirement", decision.Reason)
+	})
+
 	t.Run("Fail: Signer Error", func(t *testing.T) {
 		brokenSigner := &MockSigner{FailSign: true}
 		brokenSubject := NewGuardian(brokenSigner, ruleGraph, registry)

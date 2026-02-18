@@ -1,9 +1,9 @@
 # SC-004: Base images pinned by digest for supply chain integrity
-FROM caddy:2-builder-alpine@sha256:3ebc16c5369e8c26ad4d6a66c468c4f44e64e05fd4a01ac855f5aab6e3ac4038 AS builder
+FROM caddy:2-builder-alpine@sha256:4cff3ae272ea05842adb4546e35961e4947aeea65f80fa1eb62a35b960e84971 AS builder
 
 RUN xcaddy build \
     --with github.com/mholt/caddy-ratelimit
 
-FROM caddy:2-alpine@sha256:4b5e3c3d0e8fbb6d81e45d6b5a0d4b3a5e8c7f2a1b0c9d8e7f6a5b4c3d2e1f0a
+FROM caddy:2-alpine@sha256:4c6e91c6ed0e2fa03efd5b44747b625fec79bc9cd06ac5235a779726618e530d
 
 COPY --from=builder /usr/bin/caddy /usr/bin/caddy

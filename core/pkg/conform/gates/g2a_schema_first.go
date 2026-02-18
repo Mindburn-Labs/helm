@@ -62,7 +62,3 @@ func (g *G2ASchemaFirst) Run(ctx *conform.RunContext) *conform.GateResult {
 	return result
 }
 
-func dirExists(path string) bool {
-	info, err := os.Stat(path)
-	return err == nil && info.IsDir()
-}

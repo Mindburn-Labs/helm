@@ -57,6 +57,10 @@ func Run(args []string, stdout, stderr io.Writer) int {
 	case "pack":
 		handlePack(args[2:])
 		return 0
+	case "synthesize":
+		return runOrgSynthesize(args[2:], stdout)
+	case "export":
+		return runExportCmd(args[2:], stdout, stderr)
 	case "help", "--help", "-h":
 		printUsage(stdout)
 		return 0
@@ -73,11 +77,12 @@ func Run(args []string, stdout, stderr io.Writer) int {
 }
 
 func printUsage(w io.Writer) {
-	_, _ = fmt.Fprintln(w, "Usage: helm <command> [arguments]")
+	_, _ = fmt.Fprintln(w, "Usage: helm-node <command> [arguments]")
 	_, _ = fmt.Fprintln(w, "\nCommands:")
 	_, _ = fmt.Fprintln(w, "  server     Run the HELM server (default)")
 	_, _ = fmt.Fprintln(w, "  health     Check health of running server")
-	_, _ = fmt.Fprintln(w, "  coverage   Show coverage statistics")
+	_, _ = fmt.Fprintln(w, "  synthesize Compile a new OrgGenome (VGL)")
+	_, _ = fmt.Fprintln(w, "  export     Export EvidencePacks for audit")
 	_, _ = fmt.Fprintln(w, "  pack       Manage packs")
 }
 

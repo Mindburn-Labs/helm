@@ -2,6 +2,7 @@ package guardian
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"time"
@@ -33,6 +34,7 @@ func (wallClock) Now() time.Time { return time.Now() }
 type Guardian struct {
 	signer    crypto.Signer
 	prg       *prg.Graph
+	pe        *prg.PolicyEngine
 	registry  *pkg_artifact.Registry
 	clock     Clock
 	tracker   finance.Tracker
@@ -53,9 +55,13 @@ func NewGuardian(signer crypto.Signer, ruleGraph *prg.Graph, reg *pkg_artifact.R
 	} else {
 		c = wallClock{}
 	}
+
+	pe, _ := prg.NewPolicyEngine()
+
 	return &Guardian{
 		signer:   signer,
 		prg:      ruleGraph,
+		pe:       pe,
 		registry: reg,
 		clock:    c,
 	}
@@ -169,22 +175,38 @@ func (g *Guardian) SignDecision(ctx context.Context, decision *contracts.Decisio
 	}
 
 	// 4. Validate against PRG
-	valid, prgHash, err := g.prg.Validate(actionID, artifacts)
-	if err != nil {
+	rule, exists := g.prg.Rules[actionID]
+	if !exists {
 		decision.Verdict = "FAIL"
-		decision.Reason = fmt.Sprintf("PRG Violation: %v", err)
-		// We still sign the Fail decision so it's recorded
+		decision.Reason = fmt.Sprintf("no policy defined for action %s", actionID)
 		return g.signer.SignDecision(decision)
 	}
+
+	// Prepare CEL input
+	effectMap, _ := toMap(effect)
+	input := map[string]interface{}{
+		"action":    actionID,
+		"effect":    effectMap,
+		"artifacts": artifacts,
+		"timestamp": g.clock.Now().Unix(),
+	}
+
+	valid, err := g.pe.EvaluateRequirementSet(rule, input)
+	if err != nil {
+		decision.Verdict = "FAIL"
+		decision.Reason = fmt.Sprintf("PRG Evaluation Error: %v", err)
+		return g.signer.SignDecision(decision)
+	}
+
 	if !valid {
 		decision.Verdict = "FAIL"
-		decision.Reason = "PRG Validation Failed"
+		decision.Reason = "missing requirement"
 		return g.signer.SignDecision(decision)
 	}
 
 	// 5. Pass -> Sign
 	decision.Verdict = "PASS"
-	decision.RequirementSetHash = prgHash
+	decision.RequirementSetHash = rule.Hash()
 	decision.Timestamp = g.clock.Now() // Authority time (KERNEL_TCB §3)
 	// Optionally link evidence hashes in the decision record (needs schema update)
 
@@ -402,4 +424,16 @@ func responseToIntervention(level ResponseLevel) contracts.InterventionType {
 	default:
 		return contracts.InterventionNone
 	}
+}
+
+func toMap(v any) (map[string]interface{}, error) {
+	data, err := json.Marshal(v)
+	if err != nil {
+		return nil, err
+	}
+	var m map[string]interface{}
+	if err := json.Unmarshal(data, &m); err != nil {
+		return nil, err
+	}
+	return m, nil
 }
