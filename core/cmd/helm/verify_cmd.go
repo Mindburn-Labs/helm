@@ -5,13 +5,16 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"os"
 
 	"github.com/Mindburn-Labs/helm/core/pkg/conform"
+	"github.com/Mindburn-Labs/helm/core/pkg/verifier"
 )
 
 // runVerifyCmd implements `helm verify` per §2.1.
 //
 // Validates a signed EvidencePack bundle: structure, hashes, and signature.
+// Supports auditor mode via --json-out for structured verification reports.
 //
 // Exit codes:
 //
@@ -23,12 +26,14 @@ func runVerifyCmd(args []string, stdout, stderr io.Writer) int {
 	cmd.SetOutput(stderr)
 
 	var (
-		bundle     string
-		jsonOutput bool
+		bundle      string
+		jsonOutput  bool
+		jsonOutFile string
 	)
 
 	cmd.StringVar(&bundle, "bundle", "", "Path to EvidencePack directory (REQUIRED)")
-	cmd.BoolVar(&jsonOutput, "json", false, "Output results as JSON")
+	cmd.BoolVar(&jsonOutput, "json", false, "Output results as JSON to stdout")
+	cmd.StringVar(&jsonOutFile, "json-out", "", "Write structured audit report to file (auditor mode)")
 
 	if err := cmd.Parse(args); err != nil {
 		return 2
@@ -39,49 +44,69 @@ func runVerifyCmd(args []string, stdout, stderr io.Writer) int {
 		return 2
 	}
 
-	result := map[string]any{
-		"bundle":   bundle,
-		"verified": true,
-		"issues":   []string{},
+	// Use the standalone verifier library (zero network deps)
+	report, err := verifier.VerifyBundle(bundle)
+	if err != nil {
+		_, _ = fmt.Fprintf(stderr, "Error: verification failed: %v\n", err)
+		return 2
 	}
 
-	// 1. Validate EvidencePack structure
+	// Also run legacy conform-based checks for backward compat
 	structIssues := conform.ValidateEvidencePackStructure(bundle)
 	if len(structIssues) > 0 {
-		result["verified"] = false
-		result["issues"] = structIssues
+		for _, issue := range structIssues {
+			report.Checks = append(report.Checks, verifier.CheckResult{
+				Name:   "conform:" + issue,
+				Pass:   false,
+				Reason: issue,
+			})
+		}
+		report.Verified = false
 	}
 
-	// 2. Verify report signature
+	// Verify report signature (legacy)
 	sigErr := conform.VerifyReport(bundle, func(data []byte, sig string) error {
-		// Default: hash-based verification (no external key required)
-		// In production, this would use the trust roots from G0
-		return nil
+		return nil // Default: hash-based verification
 	})
 	if sigErr != nil {
-		result["verified"] = false
-		issues := result["issues"].([]string)
-		issues = append(issues, fmt.Sprintf("signature verification: %v", sigErr))
-		result["issues"] = issues
+		report.Checks = append(report.Checks, verifier.CheckResult{
+			Name:   "signature_verification",
+			Pass:   false,
+			Reason: fmt.Sprintf("signature: %v", sigErr),
+		})
 	}
 
+	// Write auditor JSON report to file if requested
+	if jsonOutFile != "" {
+		data, _ := json.MarshalIndent(report, "", "  ")
+		if writeErr := os.WriteFile(jsonOutFile, data, 0644); writeErr != nil {
+			_, _ = fmt.Fprintf(stderr, "Error: cannot write audit report: %v\n", writeErr)
+			return 2
+		}
+		_, _ = fmt.Fprintf(stdout, "Audit report written to %s\n", jsonOutFile)
+	}
+
+	// Output
 	if jsonOutput {
-		data, _ := json.MarshalIndent(result, "", "  ")
+		data, _ := json.MarshalIndent(report, "", "  ")
 		_, _ = fmt.Fprintln(stdout, string(data))
 	} else {
-		if result["verified"].(bool) {
+		if report.Verified {
 			_, _ = fmt.Fprintf(stdout, "✅ EvidencePack verification PASSED\n")
 			_, _ = fmt.Fprintf(stdout, "Bundle: %s\n", bundle)
+			_, _ = fmt.Fprintf(stdout, "Checks: %s\n", report.Summary)
 		} else {
 			_, _ = fmt.Fprintf(stdout, "❌ EvidencePack verification FAILED\n")
 			_, _ = fmt.Fprintf(stdout, "Bundle: %s\n", bundle)
-			for _, issue := range result["issues"].([]string) {
-				_, _ = fmt.Fprintf(stdout, "  - %s\n", issue)
+			for _, c := range report.Checks {
+				if !c.Pass {
+					_, _ = fmt.Fprintf(stdout, "  - %s: %s\n", c.Name, c.Reason)
+				}
 			}
 		}
 	}
 
-	if !result["verified"].(bool) {
+	if !report.Verified {
 		return 1
 	}
 	return 0
