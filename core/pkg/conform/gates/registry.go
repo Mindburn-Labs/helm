@@ -30,6 +30,7 @@ func DefaultEngine() *conform.Engine {
 	// Extension gates
 	e.RegisterGate(&GXTenantIsolation{})
 	e.RegisterGate(&GXEnvelopeBound{})
+	e.RegisterGate(&GXSDKDrift{})
 
 	return e
 }
