@@ -171,13 +171,13 @@ curl -s -X POST http://localhost:8080/mcp/v1/execute \
 
 Typed clients for 5 languages. All generated from [api/openapi/helm.openapi.yaml](api/openapi/helm.openapi.yaml).
 
-| Language | Install | Docs |
-|----------|---------|------|
-| TypeScript | `npm install @mindburn/helm-sdk` | [sdk/ts/README.md](sdk/ts/README.md) |
-| Python | `pip install helm-sdk` | [sdk/python/README.md](sdk/python/README.md) |
-| Go | `go get github.com/Mindburn-Labs/helm/sdk/go` | [sdk/go/README.md](sdk/go/README.md) |
-| Rust | `cargo add helm-sdk` | [sdk/rust/README.md](sdk/rust/README.md) |
-| Java | Maven `ai.mindburn.helm:helm-sdk:0.1.0` | [sdk/java/README.md](sdk/java/README.md) |
+| Language | Installation Command | Package Link |
+| :--- | :--- | :--- |
+| **TypeScript** | `npm install @mindburn/helm-sdk` | [npm/@mindburn/helm-sdk](https://www.npmjs.com/package/@mindburn/helm-sdk) |
+| **Python** | `pip install helm-sdk` | [pypi/helm-sdk](https://pypi.org/project/helm-sdk/) |
+| **Go** | `go get github.com/Mindburn-Labs/helm/sdk/go` | [pkg.go.dev](https://pkg.go.dev/github.com/Mindburn-Labs/helm/sdk/go) |
+| **Rust** | `cargo add helm-sdk` | [crates.io/helm-sdk](https://crates.io/crates/helm-sdk) |
+| **Java** | `implementation 'ai.mindburn.helm:helm-sdk:0.1.0'` | [Maven Central](https://central.sonatype.com/) |
 
 Every SDK exposes the same primitives: `chatCompletions`, `approveIntent`, `listSessions`, `getReceipts`, `exportEvidence`, `verifyEvidence`, `conformanceRun`.
 

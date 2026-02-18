@@ -1,9 +1,9 @@
 #!/bin/bash
 set -e
 
-# HELM Distribution Script
+# HELM Distribution Script (SOTA Full Coverage)
 # Usage: ./scripts/release/distribute.sh [version]
-# Example: ./scripts/release/distribute.sh v0.1.0-sota
+# Example: ./scripts/release/distribute.sh 0.1.0
 
 VERSION=$1
 if [ -z "$VERSION" ]; then
@@ -11,36 +11,31 @@ if [ -z "$VERSION" ]; then
     exit 1
 fi
 
-echo "🚀 Distributing HELM $VERSION..."
+echo "🚀 Distributing HELM $VERSION across all ecosystems..."
 
-# 1. Verification
-echo "🔍 Verifying artifacts..."
-if [ ! -f "bin/SHA256SUMS.txt" ]; then
-    echo "❌ bin/SHA256SUMS.txt not found. Run 'make release-binaries' first."
-    exit 1
-fi
-shasum -c bin/SHA256SUMS.txt --ignore-missing
-echo "✅ Artifacts verified."
+# 1. Go (via Git Tags)
+echo "🐹 Tagging Go SDK..."
+git tag "sdk/go/v$VERSION"
+git push origin "sdk/go/v$VERSION"
+echo "✅ Go SDK tagged (v$VERSION)."
 
-# 2. Docker Publish
-echo "🐳 Publishing Docker image..."
-if [ -z "$DOCKER_REPO" ]; then
-    echo "⚠️  DOCKER_REPO not set. Skipping Docker publish."
+# 2. Rust (Crates.io)
+echo "🦀 Publishing Rust SDK..."
+if [ -z "$CARGO_REGISTRY_TOKEN" ]; then
+    echo "⚠️  CARGO_REGISTRY_TOKEN not set. Skipping Rust publish."
 else
-    docker tag helm:latest "$DOCKER_REPO/helm:$VERSION"
-    docker tag helm:latest "$DOCKER_REPO/helm:latest"
-    docker push "$DOCKER_REPO/helm:$VERSION"
-    docker push "$DOCKER_REPO/helm:latest"
-    echo "✅ Docker image published."
+    cd sdk/rust
+    cargo publish --token "$CARGO_REGISTRY_TOKEN"
+    cd ../..
+    echo "✅ Rust SDK published."
 fi
 
-# 3. NPM Publish
+# 3. NPM (TypeScript)
 echo "📦 Publishing NPM package..."
 if [ -z "$NPM_TOKEN" ]; then
     echo "⚠️  NPM_TOKEN not set. Skipping NPM publish."
 else
     cd sdk/ts
-    # Ensure version matches
     npm version "$VERSION" --no-git-tag-version --allow-same-version
     echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" > .npmrc
     npm publish --access public
@@ -49,13 +44,12 @@ else
     echo "✅ NPM package published."
 fi
 
-# 4. PyPI Publish
+# 4. PyPI (Python)
 echo "🐍 Publishing PyPI package..."
 if [ -z "$PYPI_TOKEN" ]; then
     echo "⚠️  PYPI_TOKEN not set. Skipping PyPI publish."
 else
     cd sdk/python
-    # Ensure build tools
     pip install -q build twine
     python3 -m build
     twine upload dist/* -u __token__ -p "$PYPI_TOKEN"
@@ -63,30 +57,16 @@ else
     echo "✅ PyPI package published."
 fi
 
-# 5. GitHub Release
-echo "🐙 Creating GitHub Release..."
-if ! command -v gh &> /dev/null; then
-    echo "⚠️  'gh' CLI not found. Skipping GitHub Release."
+# 5. Docker
+echo "🐳 Publishing Docker image..."
+if [ -z "$DOCKER_REPO" ]; then
+    echo "⚠️  DOCKER_REPO not set. Skipping Docker publish."
 else
-    # Check if tag exists locally, if not create it
-    if ! git rev-parse "$VERSION" >/dev/null 2>&1; then
-        echo "Creating git tag $VERSION..."
-        git tag "$VERSION"
-        git push origin "$VERSION"
-    fi
-
-    gh release create "$VERSION" 
-        bin/helm-darwin-amd64 
-        bin/helm-darwin-arm64 
-        bin/helm-linux-amd64 
-        bin/helm-linux-arm64 
-        bin/SHA256SUMS.txt 
-        artifacts/99_final/sbom.json 
-        --title "HELM $VERSION (SOTA)" 
-        --notes-file RELEASE_NOTES.md 
-        --draft
-
-    echo "✅ GitHub Release created (Draft)."
+    docker tag helm:latest "$DOCKER_REPO/helm:v$VERSION"
+    docker tag helm:latest "$DOCKER_REPO/helm:latest"
+    docker push "$DOCKER_REPO/helm:v$VERSION"
+    docker push "$DOCKER_REPO/helm:latest"
+    echo "✅ Docker image published."
 fi
 
-echo "🎉 Distribution complete!"
+echo "🎉 Full Distribution complete for version $VERSION!"
