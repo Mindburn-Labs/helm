@@ -92,20 +92,20 @@ func runDoctorCmd(stdout, stderr io.Writer) int {
 	}
 
 	// Print results
-	_, _ = fmt.Fprintln(stdout, "HELM Doctor")
-	_, _ = fmt.Fprintln(stdout, "───────────")
+	fmt.Fprintf(stdout, "\n%sHELM Doctor%s\n", ColorBold+ColorPurple, ColorReset)
+	fmt.Fprintln(stdout, "───────────")
 	for _, r := range results {
 		icon := "✅"
 		if r.Status == "warn" {
-			icon = "⚠️"
+			icon = "⚠️ "
 		} else if r.Status == "fail" {
 			icon = "❌"
 		}
-		_, _ = fmt.Fprintf(stdout, "  %s  %-20s %s\n", icon, r.Name, r.Detail)
+		fmt.Fprintf(stdout, "  %s  %-20s %s%s%s\n", icon, r.Name, ColorGray, r.Detail, ColorReset)
 	}
 
 	if allOK {
-		_, _ = fmt.Fprintln(stdout, "\nAll checks passed.")
+		fmt.Fprintf(stdout, "\n%sAll checks passed. You are ready to propose.%s\n", ColorGreen+ColorBold, ColorReset)
 		return 0
 	}
 	return 1

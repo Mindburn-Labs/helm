@@ -103,30 +103,57 @@ func Run(args []string, stdout, stderr io.Writer) int {
 	}
 }
 
+// ANSI Colors
+const (
+	ColorReset  = "\033[0m"
+	ColorBold   = "\033[1m"
+	ColorRed    = "\033[31m"
+	ColorGreen  = "\033[32m"
+	ColorYellow = "\033[33m"
+	ColorBlue   = "\033[34m"
+	ColorPurple = "\033[35m"
+	ColorCyan   = "\033[36m"
+	ColorGray   = "\033[37m"
+)
+
 func printUsage(w io.Writer) {
-	_, _ = fmt.Fprintln(w, "Usage: helm <command> [arguments]")
-	_, _ = fmt.Fprintln(w, "")
-	_, _ = fmt.Fprintln(w, "Kernel Commands:")
-	_, _ = fmt.Fprintln(w, "  server       Run the HELM server (default)")
-	_, _ = fmt.Fprintln(w, "  doctor       Check system health and configuration")
-	_, _ = fmt.Fprintln(w, "  health       Check server health (HTTP)")
-	_, _ = fmt.Fprintln(w, "  init         Initialize a new HELM project")
-	_, _ = fmt.Fprintln(w, "")
-	_, _ = fmt.Fprintln(w, "Conformance & Verification:")
-	_, _ = fmt.Fprintln(w, "  conform      Run conformance gates (--profile, --json)")
-	_, _ = fmt.Fprintln(w, "  verify       Verify EvidencePack bundle (--bundle, --json)")
-	_, _ = fmt.Fprintln(w, "  replay       Replay and verify from tapes (--evidence, --verify, --json)")
-	_, _ = fmt.Fprintln(w, "  export       Export EvidencePack (--evidence, --out, --audit, --json)")
-	_, _ = fmt.Fprintln(w, "")
-	_, _ = fmt.Fprintln(w, "Trust Management:")
-	_, _ = fmt.Fprintln(w, "  trust add-key      Add a trust root key")
-	_, _ = fmt.Fprintln(w, "  trust revoke-key   Revoke a trust root key")
-	_, _ = fmt.Fprintln(w, "  trust list-keys    List active trust root keys")
-	_, _ = fmt.Fprintln(w, "")
-	_, _ = fmt.Fprintln(w, "Other:")
-	_, _ = fmt.Fprintln(w, "  pack         Manage packs")
-	_, _ = fmt.Fprintln(w, "  coverage     Show coverage statistics")
-	_, _ = fmt.Fprintln(w, "  help         Show this help")
+	fmt.Fprintln(w, "")
+	fmt.Fprintf(w, "%sHELM Kernel %s%s\n", ColorBold+ColorBlue, "v0.1.0", ColorReset)
+	fmt.Fprintf(w, "%sModels propose. The kernel disposes.%s\n", ColorGray, ColorReset)
+	fmt.Fprintln(w, "")
+	fmt.Fprintf(w, "%sUSAGE:%s\n", ColorBold, ColorReset)
+	fmt.Fprintln(w, "  helm <command> [flags]")
+	fmt.Fprintln(w, "")
+
+	printSection(w, "KERNEL")
+	printCommand(w, "server", "Run the HELM server (default)")
+	printCommand(w, "doctor", "Check system health and configuration")
+	printCommand(w, "health", "Check server health (HTTP)")
+	printCommand(w, "init", "Initialize a new HELM project")
+
+	printSection(w, "CONFORMANCE & VERIFICATION")
+	printCommand(w, "conform", "Run conformance gates (--profile, --json)")
+	printCommand(w, "verify", "Verify EvidencePack bundle (--bundle, --json)")
+	printCommand(w, "replay", "Replay and verify from tapes (--evidence)")
+	printCommand(w, "export", "Export EvidencePack (--evidence, --out)")
+
+	printSection(w, "TRUST MANAGEMENT")
+	printCommand(w, "trust", "Manage trust root keys (add/revoke/list)")
+
+	printSection(w, "UTILITIES")
+	printCommand(w, "pack", "Manage evidence packs (create/verify)")
+	printCommand(w, "coverage", "Show coverage statistics")
+	printCommand(w, "version", "Show version information")
+	printCommand(w, "help", "Show this help")
+	fmt.Fprintln(w, "")
+}
+
+func printSection(w io.Writer, title string) {
+	fmt.Fprintf(w, "%s%s:%s\n", ColorBold+ColorCyan, title, ColorReset)
+}
+
+func printCommand(w io.Writer, name, desc string) {
+	fmt.Fprintf(w, "  %s%-12s%s %s\n", ColorGreen, name, ColorReset, desc)
 }
 
 func handleCoverage(args []string) {
