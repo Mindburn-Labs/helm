@@ -1,0 +1,23 @@
+{
+  "generated_at": "2026-02-17T17:54:00Z",
+  "type": "load_testing_posture",
+  "status": "NOT_IMPLEMENTED",
+  "assessment": {
+    "description": "No load test scripts or benchmark suites found in CI.",
+    "existing_benchmarks": [
+      {
+        "description": "Go benchmark functions may exist in _test.go files (func BenchmarkXxx)",
+        "status": "Not verified in CI — no benchmark job in helm_core_gates.yml"
+      }
+    ],
+    "recommended_load_scenarios": [
+      "Sustained 1000 RPS through proxy → measure receipt throughput",
+      "100 concurrent tool_calls → verify ProofGraph consistency",
+      "ProofGraph with 100K nodes → verify traversal performance",
+      "SwarmPDP batch evaluation with 10K requests → measure parallelism",
+      "Evidence export with 10K receipts → verify determinism under load"
+    ]
+  },
+  "gap_severity": "MEDIUM",
+  "rationale": "Performance characteristics under load are undocumented. No SLA targets defined."
+}

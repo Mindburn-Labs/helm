@@ -13,6 +13,7 @@ import (
 type Signer interface {
 	Sign(data []byte) (string, error)
 	PublicKey() string
+	PublicKeyBytes() []byte
 	SignDecision(d *contracts.DecisionRecord) error
 	SignIntent(i *contracts.AuthorizedExecutionIntent) error
 	SignReceipt(r *contracts.Receipt) error

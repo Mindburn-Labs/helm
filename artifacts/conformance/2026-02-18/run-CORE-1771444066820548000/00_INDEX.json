@@ -1,0 +1,20 @@
+{
+  "run_id": "run-CORE-1771444066820548000",
+  "profile": "CORE",
+  "created_at": "2026-02-18T19:47:46.82936Z",
+  "topo_order_rule": "seq_monotonic_dag",
+  "entries": [
+    {
+      "path": "01_SCORE.json",
+      "sha256": "7adebcd31496591ffd36c9e23f28d4061a1d46360b6c22f90e39dc990632c28c",
+      "size_bytes": 1336,
+      "content_type": "application/json"
+    },
+    {
+      "path": "01_SCORE.json.sha256",
+      "sha256": "23729df8d39fb97c06a92f77e23b1b15ad770ba9a9a89420a7f6c5a25c812e4b",
+      "size_bytes": 65,
+      "content_type": "application/octet-stream"
+    }
+  ]
+}

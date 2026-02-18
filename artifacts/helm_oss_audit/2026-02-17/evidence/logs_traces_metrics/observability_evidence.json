@@ -1,0 +1,45 @@
+{
+  "generated_at": "2026-02-17T17:54:00Z",
+  "type": "observability_evidence",
+  "status": "IMPLEMENTED",
+  "implementation": {
+    "package": "observability/observability.go",
+    "loc": 362,
+    "library": "go.opentelemetry.io/otel",
+    "features": {
+      "traces": {
+        "exporter": "OTLP (gRPC)",
+        "sampler": "AlwaysSample (configurable)",
+        "span_attributes": ["helm.component", "helm.version"]
+      },
+      "metrics": {
+        "exporter": "OTLP (gRPC)",
+        "instruments": [
+          "http_requests_total (Counter)",
+          "http_request_duration_seconds (Histogram)",
+          "helm_receipts_total (Counter)",
+          "helm_active_executions (UpDownCounter)"
+        ],
+        "pattern": "RED (Rate, Errors, Duration)"
+      },
+      "transport_security": {
+        "type": "mTLS",
+        "implementation": "tls.Config with client certificates"
+      }
+    },
+    "configuration": {
+      "env_vars": [
+        "OTEL_EXPORTER_OTLP_ENDPOINT",
+        "OTEL_EXPORTER_OTLP_CERTIFICATE",
+        "OTEL_EXPORTER_OTLP_CLIENT_CERTIFICATE",
+        "OTEL_EXPORTER_OTLP_CLIENT_KEY",
+        "OTEL_SERVICE_NAME"
+      ]
+    }
+  },
+  "known_gaps": [
+    "No structured logging (slog) integration — uses standard log",
+    "No log → trace correlation (trace_id in log fields)",
+    "No Grafana/Prometheus dashboard templates shipped"
+  ]
+}

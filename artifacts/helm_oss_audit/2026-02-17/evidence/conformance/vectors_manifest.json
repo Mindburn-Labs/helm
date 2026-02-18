@@ -1,0 +1,21 @@
+{
+  "audit_id": "helm-oss-audit-2026-02-17",
+  "conformance_vectors": {
+    "CV-001": { "description": "Simple chat completion, no tools", "status": "needs_creation" },
+    "CV-002": { "description": "Single tool call, valid schema", "status": "needs_creation" },
+    "CV-003": { "description": "Tool call with schema mismatch → DENY", "status": "exercised_by_UC-002" },
+    "CV-004": { "description": "Multi-step tool loop → converge", "status": "exercised_by_UC-012" },
+    "CV-005": { "description": "Streaming completion with tool call", "status": "needs_creation" },
+    "CV-006": { "description": "Budget exceeded mid-execution", "status": "exercised_by_UC-005" },
+    "CV-007": { "description": "Unknown tool → DENY_TOOL_NOT_FOUND", "status": "exercised_by_UC-001" }
+  },
+  "replay_vectors": {
+    "RV-001": { "description": "Simple tool call → receipt → replay", "status": "needs_creation" },
+    "RV-002": { "description": "Multi-step tool loop → full chain replay", "status": "needs_creation" },
+    "RV-003": { "description": "Denied tool call → denial receipt → replay", "status": "needs_creation" },
+    "RV-004": { "description": "Approval ceremony → approval receipt → replay", "status": "needs_creation" },
+    "RV-005": { "description": "WASI execution → sandbox receipt → replay", "status": "needs_creation" },
+    "RV-006": { "description": "Trust key rotation mid-session → replay", "status": "needs_creation" }
+  },
+  "note": "Run 'make build && make crucible' to exercise existing vectors (UC-001 through UC-012). Create missing vectors per backlog P1-008."
+}

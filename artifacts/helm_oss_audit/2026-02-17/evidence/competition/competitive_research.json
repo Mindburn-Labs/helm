@@ -1,0 +1,77 @@
+{
+  "audit_id": "HELM-AUDIT-2026-02-17",
+  "research_date": "2026-02-17",
+  "competitors": {
+    "langchain": {
+      "type": "orchestration_framework",
+      "security_audit": "SOC 2 Type II (LangSmith SaaS, 2025)",
+      "known_cves": [
+        "CVE-2025-68664 (LangGrinch): RCE via serialization injection in langchain-core",
+        "CVE-2024-36480: RCE in custom tools",
+        "CVE-2023-46229: SSRF",
+        "CVE-2023-44467: Prompt injection (PALChain)"
+      ],
+      "crypto_proofs": false,
+      "deterministic_execution": false,
+      "adoption": "2M+ weekly pip downloads"
+    },
+    "crewai": {
+      "type": "multi_agent_orchestrator",
+      "security": "Enterprise audit logs (2026)",
+      "determinism": "Task guardrails (retry until valid output)",
+      "crypto_proofs": false,
+      "key_gap_vs_helm": "No cryptographic proofs or causal ordering"
+    },
+    "autogen": {
+      "type": "multi_agent_framework",
+      "version": "v0.4 (Jan 2025)",
+      "security": "Built-in debugging/monitoring, encryption, compliance frameworks",
+      "future": "Unifying with Semantic Kernel into MS Agent Framework",
+      "planned": "OTel tracing, enterprise approval (Agent 365)"
+    },
+    "semantic_kernel": {
+      "type": "enterprise_sdk",
+      "security": "Azure AD integration, conditional access",
+      "planned": "OTel tracing (Q3 2026), Semantic Kernel durability",
+      "risk": "CISA identified vulnerability in early 2026"
+    },
+    "nemo_guardrails": {
+      "type": "guardrail_system",
+      "rail_types": 5,
+      "rails": ["input", "dialog", "retrieval", "execution", "output"],
+      "policy_engine": "Colang (declarative DSL)",
+      "maturity": "Thoughtworks Adopt (Nov 2025)",
+      "integration": ["LangChain", "LlamaIndex", "NVIDIA NIM"],
+      "crypto_proofs": false,
+      "competitive_threat": "If NVIDIA adds receipt signing, HELM differentiation narrows"
+    },
+    "guardrails_ai": {
+      "type": "output_validation",
+      "approach": "Pydantic-style validation, RAIL spec",
+      "crypto_proofs": false,
+      "collaboration": "NVIDIA partnership for complementary safety"
+    },
+    "llm_guard": {
+      "type": "scanning",
+      "focus": "PII redaction, prompt injection detection, content moderation",
+      "deployment": "CPU inference, low latency",
+      "crypto_proofs": false
+    },
+    "composio": {
+      "type": "tool_routing_middleware",
+      "tools": "850+",
+      "auth": "Managed OAuth, API keys, JWTs",
+      "mcp": true,
+      "accuracy_boost": "40% improvement over traditional frameworks (claimed)",
+      "crypto_proofs": false
+    }
+  },
+  "openai_api_timeline": {
+    "gpt4o_support_ended": "2026-02-16",
+    "assistants_api_sunset": "2026-08-26",
+    "realtime_api_removal": "2026-02-27",
+    "responses_api_launched": "2025-03",
+    "chat_completions_status": "supported indefinitely (per OpenAI)"
+  },
+  "market_prediction": "Agent governance predicted to become its own product category in 2026 (Vectra AI)"
+}

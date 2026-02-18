@@ -50,8 +50,8 @@ docker-compose.override.yml
 .env.*.local
 .env.release
 
-# Artifacts (generated — not part of source)
-/artifacts/
+# Data directory (Lite Mode DBs)
+data/
 deps.txt
 sbom.json
 sbom.spdx.json

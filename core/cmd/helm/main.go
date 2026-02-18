@@ -346,26 +346,47 @@ func handlePackVerify(args []string) int {
 
 //nolint:gocognit,gocyclo
 func runServer() {
-	log.Println("[helm] kernel starting")
+	fmt.Fprintf(os.Stdout, "%sHELM Kernel starting...%s\n", ColorBold+ColorBlue, ColorReset)
 	ctx := context.Background()
 	logger := slog.Default()
 
-	// 0.05 Initialize Data Dir
-	// dataDir := getenvDefault("DATA_DIR", "data")
+	var (
+		db           *sql.DB
+		lgr          ledger.Ledger
+		receiptStore store.ReceiptStore
+		err          error
+	)
 
 	// 0.2 Connect to Database (Infrastructure)
 	dbURL := os.Getenv("DATABASE_URL")
 	if dbURL == "" {
-		log.Fatal("DATABASE_URL is required")
+		fmt.Fprintf(os.Stdout, "ℹ️  DATABASE_URL not set. Falling back to %sLite Mode%s (SQLite).\n", ColorBold+ColorCyan, ColorReset)
+		db, lgr, receiptStore, err = setupLiteMode(ctx)
+		if err != nil {
+			log.Fatalf("Failed to setup Lite Mode: %v", err)
+		}
+	} else {
+		db, err = sql.Open("postgres", dbURL)
+		if err != nil {
+			log.Fatalf("Failed to connect to DB: %v", err)
+		}
+		if err := db.PingContext(ctx); err != nil {
+			log.Fatalf("DB Ping failed: %v", err)
+		}
+		log.Println("[helm] postgres: connected")
+
+		// Use Postgres Ledger
+		pl := ledger.NewPostgresLedger(db)
+		if err := pl.Init(ctx); err != nil {
+			log.Fatalf("Failed to init ledger: %v", err)
+		}
+		lgr = pl
+		ps := store.NewPostgresReceiptStore(db)
+		if err := ps.Init(ctx); err != nil {
+			log.Fatalf("Failed to init receipt store: %v", err)
+		}
+		receiptStore = ps
 	}
-	db, err := sql.Open("postgres", dbURL)
-	if err != nil {
-		log.Fatalf("Failed to connect to DB: %v", err)
-	}
-	if err := db.PingContext(ctx); err != nil {
-		log.Fatalf("DB Ping failed: %v", err)
-	}
-	log.Println("[helm] postgres: connected")
 
 	// 1. Initialize Kernel Layers
 	// Initialize Identity KeySet
@@ -375,28 +396,13 @@ func runServer() {
 	}
 	jwtValidator := auth.NewJWTValidator(keySet)
 
-	// Use Postgres Ledger
-	lgr := ledger.NewPostgresLedger(db)
-	if err := lgr.Init(ctx); err != nil {
-		log.Fatalf("Failed to init ledger: %v", err)
-	}
-
-	// Legacy Signer for Guardian/Executor
-	// We use a mock or temp signer if HSM is not available, or rely on env
-	// For simplicity in OSS cleanup, we use a generated key if HSM fails or ignored
-	// crypto.NewSoftHSM depends on deleted infra? No, crypto package.
-	// We'll skip HSM for now to avoid complexity and file I/O issues in cleanup.
-	// Use an ephemeral signer.
-	signer, err := crypto.NewEd25519Signer("ephemeral-os-key")
+	// Signing Authority
+	signer, err := loadOrGenerateSigner()
 	if err != nil {
 		log.Fatalf("Failed to init signer: %v", err)
 	}
 	verifier, _ := crypto.NewEd25519Verifier(signer.PublicKeyBytes())
-
-	receiptStore := store.NewPostgresReceiptStore(db)
-	if err := receiptStore.Init(ctx); err != nil {
-		log.Fatalf("Failed to init receipt store: %v", err)
-	}
+	fmt.Fprintf(os.Stdout, "🔑 Trust Root: %s%s%s\n", ColorBold+ColorGreen, signer.PublicKey(), ColorReset)
 
 	meter := metering.NewPostgresMeter(db)
 	if err := meter.Init(ctx); err != nil {

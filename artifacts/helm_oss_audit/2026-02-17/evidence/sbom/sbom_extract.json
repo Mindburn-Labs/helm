@@ -1,0 +1,34 @@
+{
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.5",
+  "generated_at": "2026-02-17T17:54:00Z",
+  "type": "sbom_extract",
+  "status": "extracted_from_ci",
+  "note": "SBOM is generated in CI via 'make sbom' using cyclonedx-gomod. This is a structural extract.",
+  "generation": {
+    "ci_job": "sbom (helm_core_gates.yml L174-197)",
+    "command": "bash scripts/ci/generate_sbom.sh",
+    "validation": "CycloneDX schema validation in CI",
+    "upload": "actions/upload-artifact@v4 → artifact 'sbom'"
+  },
+  "go_module": {
+    "module": "github.com/Mindburn-Labs/helm/core",
+    "go_version": "1.24",
+    "package_count": 112
+  },
+  "key_dependencies": [
+    {"name": "github.com/google/cel-go/cel", "purpose": "CEL policy evaluation"},
+    {"name": "github.com/tetratelabs/wazero", "purpose": "WASI sandbox runtime"},
+    {"name": "github.com/santhosh-tekuri/jsonschema/v5", "purpose": "JSON Schema validation (Draft 2020-12)"},
+    {"name": "github.com/golang-jwt/jwt/v5", "purpose": "JWT authentication"},
+    {"name": "github.com/google/uuid", "purpose": "UUID generation"},
+    {"name": "go.opentelemetry.io/otel", "purpose": "OpenTelemetry tracing/metrics"},
+    {"name": "go.opentelemetry.io/otel/exporters/otlp", "purpose": "OTLP exporter"},
+    {"name": "github.com/stretchr/testify", "purpose": "Test assertions (test only)"}
+  ],
+  "gaps": [
+    "Only Go dependencies tracked — no per-SDK SBOMs (TypeScript, Python, Rust, Java)",
+    "CI SBOM is not published to release artifacts by default",
+    "No VEX (Vulnerability Exploitability eXchange) document"
+  ]
+}

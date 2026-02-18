@@ -1,0 +1,48 @@
+{
+  "generated_at": "2026-02-17T17:54:00Z",
+  "type": "fuzz_testing_posture",
+  "status": "NOT_IMPLEMENTED",
+  "assessment": {
+    "description": "No Go native fuzz tests (func FuzzXxx) found in the codebase.",
+    "recommended_fuzz_targets": [
+      {
+        "package": "canonicalize/jcs.go",
+        "function": "Marshal",
+        "priority": "P0",
+        "rationale": "JCS is the canonical serialization; malformed input could bypass hash consistency"
+      },
+      {
+        "package": "crypto/signer.go",
+        "function": "Sign/Verify",
+        "priority": "P1",
+        "rationale": "Signature verification is trust-critical"
+      },
+      {
+        "package": "firewall/firewall.go",
+        "function": "CallTool",
+        "priority": "P1",
+        "rationale": "Policy enforcement boundary — malformed inputs could bypass allowlist"
+      },
+      {
+        "package": "boundary/perimeter.go",
+        "function": "CheckNetwork/CheckTool/CheckData",
+        "priority": "P1",
+        "rationale": "Perimeter enforcement — regex/pattern matching on untrusted input"
+      },
+      {
+        "package": "auth/middleware.go",
+        "function": "Validate",
+        "priority": "P1",
+        "rationale": "JWT parsing of untrusted tokens"
+      },
+      {
+        "package": "governance/pdp.go",
+        "function": "Evaluate",
+        "priority": "P2",
+        "rationale": "CEL expression evaluation with untrusted context"
+      }
+    ]
+  },
+  "gap_severity": "MEDIUM",
+  "rationale": "Fuzz testing is a 2026 SOTA requirement for security-critical parsers (JCS, JWT, JSON Schema). Missing fuzzing is a notable gap."
+}

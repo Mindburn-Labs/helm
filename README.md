@@ -6,49 +6,34 @@
 [![SBOM](https://img.shields.io/badge/SBOM-CycloneDX%201.5-blue)](sbom.json)
 [![Provenance](https://img.shields.io/badge/provenance-SLSA-blue)](https://github.com/Mindburn-Labs/helm/releases)
 
-OpenAI-compatible proxy that enforces tool execution and emits verifiable cryptographic receipts.
+**Models propose. The kernel disposes.**
 
-Spec is broader than v0.1 by design — see [docs/OSS_CUTLINE.md](docs/OSS_CUTLINE.md) for exact shipped guarantees.
+HELM is a high-performance, deterministic proxy for LLM tool calling. It enforces mathematical and legal boundaries on AI agents in real-time, generating a tamper-proof **ProofGraph** of every decision.
 
-- **1-line integration** — swap `base_url`, keep everything else
-- **EvidencePack export** — deterministic `.tar.gz`, verify offline, sue-grade
-- **Bounded compute** — WASI sandbox with gas/time/memory caps, approval ceremonies with timelocks
-- **Canonical Standard** — [HELM Unified Canonical Standard v1.2](HELM_Unified_Canonical_Standard_FINAL_2026-02-15_FINAL_SOTA_v1.2.md)
+**[Read HELM for Humans 🧠](docs/FOR_HUMANS.md)** — A non-technical overview of why this exists.
 
 ---
 
-### Quickest path to a receipt
+## 🚀 SOTA 2026 Quickstart
+
+Install the HELM CLI and start governing in 60 seconds:
 
 ```bash
-docker compose up -d && curl -s localhost:8080/v1/chat/completions \
-  -H 'Content-Type: application/json' \
-  -d '{"model":"gpt-4","messages":[{"role":"user","content":"hello"}]}' | jq .id
+curl -fsSL https://raw.githubusercontent.com/Mindburn-Labs/helm/main/install.sh | bash
+helm server
 ```
 
-### Start from source
+*No Postgres required! HELM auto-provisions a local SQLite database and persistent trust root by default.*
+
+---
+
+## 📊 Performance
+
+HELM is built for high-stakes, low-latency environments. To measure the overhead on your machine:
 
 ```bash
-git clone https://github.com/Mindburn-Labs/helm.git && cd helm
-docker compose up -d
-curl -s http://localhost:8080/health   # → OK
+./scripts/bench/latency.sh
 ```
-
-### Run the proof loop
-
-```bash
-make build && make crucible            # 12 use cases + conformance L1/L2
-./bin/helm export --evidence ./data/evidence --out pack.tar.gz
-./bin/helm verify --bundle pack.tar.gz # offline — no network
-```
-
-### One-line integration
-
-```diff
-- client = openai.OpenAI()
-+ client = openai.OpenAI(base_url="http://localhost:8080/v1")
-```
-
-That's it. Your app doesn't change. Every tool call now produces a signed receipt in an append-only DAG.
 
 ---
 
