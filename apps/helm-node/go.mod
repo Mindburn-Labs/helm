@@ -2,8 +2,6 @@ module github.com/Mindburn-Labs/helm/apps/helm-node
 
 go 1.24.13
 
-toolchain go1.24.13
-
 require (
 	github.com/Mindburn-Labs/helm/core v0.0.0
 	github.com/google/uuid v1.6.0
@@ -61,7 +59,6 @@ require (
 	github.com/google/s2a-go v0.1.9 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.3.11 // indirect
 	github.com/googleapis/gax-go/v2 v2.17.0 // indirect
-	github.com/gowebpki/jcs v1.0.1 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.27.7 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/ncruces/go-strftime v1.0.0 // indirect

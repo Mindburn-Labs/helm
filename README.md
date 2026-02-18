@@ -81,7 +81,7 @@ curl -s http://localhost:8080/api/v1/receipts?limit=1 | jq '.[0].receipt_hash'
 # → {"profile":"L2","verdict":"PASS","gates":12}
 ```
 
-Full walkthrough: [docs/QUICKSTART.md](docs/QUICKSTART.md) · Copy-paste demo: [docs/DEMO.md](docs/DEMO.md) · 5-min micro-guide: [docs/INTEGRATE_IN_5_MIN.md](docs/INTEGRATE_IN_5_MIN.md)
+Full walkthrough: [docs/QUICKSTART.md](docs/QUICKSTART.md) · [docs/POLICY_BACKENDS.md](docs/POLICY_BACKENDS.md) · [docs/VERIFIER_TRUST_MODEL.md](docs/VERIFIER_TRUST_MODEL.md) · [docs/PROCUREMENT.md](docs/PROCUREMENT.md)
 
 ---
 

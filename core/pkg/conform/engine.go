@@ -301,6 +301,27 @@ func writeIndex(evidenceDir, runID string, profile ProfileID, clock func() time.
 	return os.WriteFile(filepath.Join(evidenceDir, "00_INDEX.json"), data, 0600)
 }
 
+// SignReport signs the 01_SCORE.json and 00_INDEX.json files using the provided signer.
+// The signature is written to 01_SCORE.json.sig and 00_INDEX.json.sig.
+func (e *Engine) SignReport(evidenceDir string, signer func([]byte) (string, error)) error {
+	items := []string{"01_SCORE.json", "00_INDEX.json"}
+	for _, item := range items {
+		path := filepath.Join(evidenceDir, item)
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		sig, err := signer(data)
+		if err != nil {
+			return err
+		}
+		if err := os.WriteFile(path+".sig", []byte(sig), 0600); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // inferContentType infers content type from file extension.
 func inferContentType(path string) string {
 	switch filepath.Ext(path) {
