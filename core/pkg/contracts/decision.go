@@ -31,6 +31,11 @@ type DecisionRecord struct {
 	// V2: Cryptographic binding to effect semantics
 	EffectDigest string `json:"effect_digest,omitempty"`
 
+	// V2: Policy backend metadata for receipt binding (P0.1 competitive defense)
+	PolicyBackend      string `json:"policy_backend,omitempty"`       // "helm" | "opa" | "cedar"
+	PolicyContentHash  string `json:"policy_content_hash,omitempty"`  // content-addressed policy version
+	PolicyDecisionHash string `json:"policy_decision_hash,omitempty"` // SHA-256 of canonical decision
+
 	StateCursor    string         `json:"state_cursor"`
 	Snapshot       string         `json:"snapshot,omitempty"` // Content-Addressed Artifact Content
 	EnvFingerprint string         `json:"env_fingerprint"`
