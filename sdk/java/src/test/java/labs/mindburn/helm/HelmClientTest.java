@@ -39,9 +39,10 @@ public class HelmClientTest {
     void testChatCompletionRequestSerialization() {
         TypesGen.ChatCompletionRequest req = new TypesGen.ChatCompletionRequest();
         req.model = "gpt-4";
-        req.messages = new TypesGen.Message[]{new TypesGen.Message()};
-        req.messages[0].role = "user";
-        req.messages[0].content = "Hello";
+        TypesGen.ChatMessage msg = new TypesGen.ChatMessage();
+        msg.role = "user";
+        msg.content = "Hello";
+        req.messages = java.util.List.of(msg);
 
         String json = gson.toJson(req);
         assertNotNull(json);
@@ -65,13 +66,13 @@ public class HelmClientTest {
     @DisplayName("TypesGen: ApprovalRequest roundtrip")
     void testApprovalRequestRoundtrip() {
         TypesGen.ApprovalRequest req = new TypesGen.ApprovalRequest();
-        req.intent_id = "intent-789";
-        req.signature = "sig-ed25519-abc";
+        req.intent_hash = "intent-789";
+        req.signature_b64 = "sig-ed25519-abc";
 
         String json = gson.toJson(req);
         TypesGen.ApprovalRequest deserialized = gson.fromJson(json, TypesGen.ApprovalRequest.class);
-        assertEquals("intent-789", deserialized.intent_id);
-        assertEquals("sig-ed25519-abc", deserialized.signature);
+        assertEquals("intent-789", deserialized.intent_hash);
+        assertEquals("sig-ed25519-abc", deserialized.signature_b64);
     }
 
     @Test
@@ -120,10 +121,9 @@ public class HelmClientTest {
     @Test
     @DisplayName("TypesGen: VerificationResult deserialization")
     void testVerificationResultDeserialization() {
-        String json = "{\"valid\":true,\"integrity_check\":\"PASS\",\"receipt_count\":5}";
+        String json = "{\"verdict\":\"PASS\",\"checks\":{\"integrity\":\"PASS\"}}";
         TypesGen.VerificationResult result = gson.fromJson(json, TypesGen.VerificationResult.class);
-        assertTrue(result.valid);
-        assertEquals("PASS", result.integrity_check);
-        assertEquals(5, result.receipt_count);
+        assertEquals("PASS", result.verdict);
+        assertEquals("PASS", result.checks.get("integrity"));
     }
 }

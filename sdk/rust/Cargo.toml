@@ -6,7 +6,7 @@ name = "helm-sdk"
 version = "0.1.0"
 edition = "2021"
 description = "Rust SDK for HELM — fail-closed tool calling for AI agents"
-license = "BSL-1.1"
+license = "BUSL-1.1"
 repository = "https://github.com/Mindburn-Labs/helm"
 
 [dependencies]

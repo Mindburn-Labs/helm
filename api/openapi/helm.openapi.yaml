@@ -10,7 +10,7 @@ info:
     url: https://github.com/Mindburn-Labs/helm/blob/main/LICENSE
   contact:
     name: Mindburn Labs
-    url: https://mindburn.ai
+    url: https://mindburn.org
 
 servers:
   - url: http://localhost:8080

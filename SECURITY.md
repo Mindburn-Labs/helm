@@ -4,7 +4,7 @@
 
 **DO NOT** open a public issue for security vulnerabilities.
 
-Email: **security@mindburn.ai**
+Email: **security@mindburn.org**
 
 You will receive acknowledgment within 48 hours and a detailed response within 7 days.
 

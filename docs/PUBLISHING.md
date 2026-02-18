@@ -108,7 +108,7 @@ Maven Central does not support OIDC. Token-based authentication is required.
 <developers>
   <developer>
     <name>Mindburn Labs</name>
-    <email>oss@mindburn.ai</email>
+    <email>oss@mindburn.org</email>
     <organization>Mindburn Labs</organization>
   </developer>
 </developers>

@@ -48,6 +48,7 @@ docker-compose.override.yml
 .env
 .env.local
 .env.*.local
+.env.release
 
 # Artifacts (generated — not part of source)
 /artifacts/
