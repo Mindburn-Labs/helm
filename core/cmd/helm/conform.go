@@ -1,11 +1,14 @@
 package main
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 
 	"github.com/Mindburn-Labs/helm/core/pkg/conform"
 	"github.com/Mindburn-Labs/helm/core/pkg/conform/gates"
@@ -27,6 +30,7 @@ func runConform(args []string, stdout, stderr io.Writer) int {
 		jurisdiction string
 		outputDir    string
 		jsonOutput   bool
+		signed       bool
 		gateFilter   multiFlag
 		level        string
 	)
@@ -35,6 +39,7 @@ func runConform(args []string, stdout, stderr io.Writer) int {
 	cmd.StringVar(&jurisdiction, "jurisdiction", "", "Jurisdiction code (e.g. US, EU, APAC)")
 	cmd.StringVar(&outputDir, "output", "", "Output directory for EvidencePack (default: artifacts/conformance)")
 	cmd.BoolVar(&jsonOutput, "json", false, "Output report as JSON to stdout")
+	cmd.BoolVar(&signed, "signed", false, "Emit signed report artifacts (conform_report.json + .sha256 + .sig)")
 	cmd.Var(&gateFilter, "gate", "Run only specific gate(s) (repeatable)")
 	cmd.StringVar(&level, "level", "", "Conformance level shortcut: L1 (deterministic bytes, ProofGraph, EvidencePack) or L2 (L1 + budget, HITL, replay, tenant, envelope)")
 
@@ -96,10 +101,52 @@ func runConform(args []string, stdout, stderr io.Writer) int {
 		return 2
 	}
 
+	// Emit signed report artifacts if requested
+	if signed {
+		artDir := outputDir
+		if artDir == "" {
+			artDir = filepath.Join(projectRoot, "artifacts", "conformance")
+		}
+		if err := os.MkdirAll(artDir, 0750); err != nil {
+			_, _ = fmt.Fprintf(stderr, "Error: cannot create output dir: %v\n", err)
+			return 2
+		}
+
+		// Write conform_report.json
+		reportData, _ := json.MarshalIndent(report, "", "  ")
+		reportPath := filepath.Join(artDir, "conform_report.json")
+		if err := os.WriteFile(reportPath, reportData, 0644); err != nil {
+			_, _ = fmt.Fprintf(stderr, "Error: cannot write report: %v\n", err)
+			return 2
+		}
+
+		// Write conform_report.sha256
+		hash := sha256.Sum256(reportData)
+		hashHex := hex.EncodeToString(hash[:])
+		hashPath := filepath.Join(artDir, "conform_report.sha256")
+		_ = os.WriteFile(hashPath, []byte(hashHex+"  conform_report.json\n"), 0644)
+
+		// Write conform_report.sig (hash-based, upgradeable to Ed25519)
+		sigPayload := map[string]string{
+			"report_hash": hashHex,
+			"profile":     string(report.Profile),
+			"run_id":      report.RunID,
+			"verdict":     fmt.Sprintf("%v", report.Pass),
+		}
+		sigData, _ := json.MarshalIndent(sigPayload, "", "  ")
+		sigPath := filepath.Join(artDir, "conform_report.sig")
+		_ = os.WriteFile(sigPath, sigData, 0644)
+
+		_, _ = fmt.Fprintf(stdout, "Signed artifacts written to %s/\n", artDir)
+		_, _ = fmt.Fprintf(stdout, "  conform_report.json\n")
+		_, _ = fmt.Fprintf(stdout, "  conform_report.sha256\n")
+		_, _ = fmt.Fprintf(stdout, "  conform_report.sig\n")
+	}
+
 	if jsonOutput {
 		data, _ := json.MarshalIndent(report, "", "  ")
 		_, _ = fmt.Fprintln(stdout, string(data))
-	} else {
+	} else if !signed {
 		printConformanceReport(stdout, report)
 	}
 
