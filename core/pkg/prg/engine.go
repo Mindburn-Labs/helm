@@ -2,8 +2,9 @@ package prg
 
 import (
 	"fmt"
-	"sync" // Added
+	"sync"
 
+	pkg_artifact "github.com/Mindburn-Labs/helm/core/pkg/artifacts"
 	"github.com/google/cel-go/cel"
 )
 
@@ -94,28 +95,48 @@ func (pe *PolicyEngine) evaluateLeaves(reqs []Requirement, input map[string]inte
 	activation := map[string]interface{}{"input": input}
 
 	for _, req := range reqs {
-		if req.Expression == "" {
-			results = append(results, true)
+		// If CEL expression exists, it takes precedence
+		if req.Expression != "" {
+			ast, issues := pe.env.Compile(req.Expression)
+			if issues != nil && issues.Err() != nil {
+				return nil, fmt.Errorf("compile error in req %s: %w", req.ID, issues.Err())
+			}
+			prog, err := pe.env.Program(ast)
+			if err != nil {
+				return nil, fmt.Errorf("program error in req %s: %w", req.ID, err)
+			}
+			out, _, err := prog.Eval(activation)
+			if err != nil {
+				return nil, fmt.Errorf("eval error in req %s: %w", req.ID, err)
+			}
+			val, ok := out.Value().(bool)
+			if !ok {
+				return nil, fmt.Errorf("req %s did not return bool", req.ID)
+			}
+			results = append(results, val)
 			continue
 		}
-		// In prod, cache the Program!
-		ast, issues := pe.env.Compile(req.Expression)
-		if issues != nil && issues.Err() != nil {
-			return nil, fmt.Errorf("compile error in req %s: %w", req.ID, issues.Err())
+
+		// Legacy ArtifactType check (for backward compatibility and simple policies)
+		if req.ArtifactType != "" {
+			artifacts, ok := input["artifacts"].([]*pkg_artifact.ArtifactEnvelope)
+			if !ok {
+				results = append(results, false)
+				continue
+			}
+			found := false
+			for _, art := range artifacts {
+				if art.Type == req.ArtifactType {
+					found = true
+					break
+				}
+			}
+			results = append(results, found)
+			continue
 		}
-		prog, err := pe.env.Program(ast)
-		if err != nil {
-			return nil, fmt.Errorf("program error in req %s: %w", req.ID, err)
-		}
-		out, _, err := prog.Eval(activation)
-		if err != nil {
-			return nil, fmt.Errorf("eval error in req %s: %w", req.ID, err)
-		}
-		val, ok := out.Value().(bool)
-		if !ok {
-			return nil, fmt.Errorf("req %s did not return bool", req.ID)
-		}
-		results = append(results, val)
+
+		// No expression and no artifact type = always pass (open policy)
+		results = append(results, true)
 	}
 	return results, nil
 }

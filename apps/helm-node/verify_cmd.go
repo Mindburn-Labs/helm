@@ -6,12 +6,13 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/Mindburn-Labs/helm/core/pkg/conform"
+	"github.com/Mindburn-Labs/helm/core/pkg/verifier"
 )
 
 // runVerifyCmd implements `helm verify` per §2.1.
 //
-// Validates a signed EvidencePack bundle: structure, hashes, and signature.
+// Validates a signed EvidencePack bundle: structure, hashes, chain integrity,
+// and replay determinism.
 //
 // Exit codes:
 //
@@ -27,8 +28,8 @@ func runVerifyCmd(args []string, stdout, stderr io.Writer) int {
 		jsonOutput bool
 	)
 
-	cmd.StringVar(&bundle, "bundle", "", "Path to EvidencePack directory (REQUIRED)")
-	cmd.BoolVar(&jsonOutput, "json", false, "Output results as JSON")
+	cmd.StringVar(&bundle, "bundle", "", "Path to EvidencePack directory or bundle (REQUIRED)")
+	cmd.BoolVar(&jsonOutput, "json", false, "Output detailed report as JSON (auditor mode)")
 
 	if err := cmd.Parse(args); err != nil {
 		return 2
@@ -39,49 +40,32 @@ func runVerifyCmd(args []string, stdout, stderr io.Writer) int {
 		return 2
 	}
 
-	result := map[string]any{
-		"bundle":   bundle,
-		"verified": true,
-		"issues":   []string{},
-	}
-
-	// 1. Validate EvidencePack structure
-	structIssues := conform.ValidateEvidencePackStructure(bundle)
-	if len(structIssues) > 0 {
-		result["verified"] = false
-		result["issues"] = structIssues
-	}
-
-	// 2. Verify report signature
-	sigErr := conform.VerifyReport(bundle, func(data []byte, sig string) error {
-		// Default: hash-based verification (no external key required)
-		// In production, this would use the trust roots from G0
-		return nil
-	})
-	if sigErr != nil {
-		result["verified"] = false
-		issues := result["issues"].([]string)
-		issues = append(issues, fmt.Sprintf("signature verification: %v", sigErr))
-		result["issues"] = issues
+	// Use the offline verifier library (P0.2)
+	report, err := verifier.VerifyBundle(bundle)
+	if err != nil {
+		_, _ = fmt.Fprintf(stderr, "Error: verification failed: %v\n", err)
+		return 2
 	}
 
 	if jsonOutput {
-		data, _ := json.MarshalIndent(result, "", "  ")
+		data, _ := json.MarshalIndent(report, "", "  ")
 		_, _ = fmt.Fprintln(stdout, string(data))
 	} else {
-		if result["verified"].(bool) {
+		if report.Verified {
 			_, _ = fmt.Fprintf(stdout, "✅ EvidencePack verification PASSED\n")
-			_, _ = fmt.Fprintf(stdout, "Bundle: %s\n", bundle)
+			_, _ = fmt.Fprintf(stdout, "Summary: %s\n", report.Summary)
 		} else {
 			_, _ = fmt.Fprintf(stdout, "❌ EvidencePack verification FAILED\n")
-			_, _ = fmt.Fprintf(stdout, "Bundle: %s\n", bundle)
-			for _, issue := range result["issues"].([]string) {
-				_, _ = fmt.Fprintf(stdout, "  - %s\n", issue)
+			_, _ = fmt.Fprintf(stdout, "Summary: %s\n", report.Summary)
+			for _, check := range report.Checks {
+				if !check.Pass {
+					_, _ = fmt.Fprintf(stdout, "  - [%s] %s: %s\n", check.Name, check.Reason, check.Detail)
+				}
 			}
 		}
 	}
 
-	if !result["verified"].(bool) {
+	if !report.Verified {
 		return 1
 	}
 	return 0

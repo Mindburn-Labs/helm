@@ -138,10 +138,6 @@ func validateBuildIdentity(path string) error {
 	return json.Unmarshal(data, &bi)
 }
 
-func fileExists(path string) bool {
-	_, err := os.Stat(path)
-	return err == nil
-}
 
 func copyToEvidence(src, dst string) {
 	data, err := os.ReadFile(src)

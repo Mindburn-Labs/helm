@@ -1,0 +1,84 @@
+{
+    "schema_version": "1.0.0",
+    "org_id": "acme-corp",
+    "pack_id": "saas-customer-support",
+    "description": "Governance policies for customer support AI agents",
+    "policies": [
+        {
+            "id": "p001",
+            "name": "Refund Approval",
+            "action": "APPROVE_REFUND",
+            "verdict": "ALLOW",
+            "constraints": {
+                "max_amount_usd": 500,
+                "requires_approval": [
+                    "manager"
+                ],
+                "cool_down_minutes": 15
+            }
+        },
+        {
+            "id": "p002",
+            "name": "Account Modification",
+            "action": "MODIFY_ACCOUNT",
+            "verdict": "REVIEW",
+            "constraints": {
+                "requires_approval": [
+                    "agent",
+                    "supervisor"
+                ],
+                "allowed_tools": [
+                    "update_email",
+                    "update_phone"
+                ]
+            }
+        },
+        {
+            "id": "p003",
+            "name": "Data Access",
+            "action": "READ_PII",
+            "verdict": "ALLOW",
+            "constraints": {
+                "max_retries": 3,
+                "cool_down_minutes": 5
+            }
+        }
+    ],
+    "risk_thresholds": {
+        "max_tokens_per_request": 4096,
+        "max_requests_per_minute": 60,
+        "max_requests_per_hour": 500,
+        "budget_usd_daily": 100,
+        "max_concurrent_sessions": 10,
+        "max_tool_calls_per_session": 20
+    },
+    "approval_chains": [
+        {
+            "action_pattern": "APPROVE_REFUND",
+            "chain": [
+                "agent",
+                "manager"
+            ],
+            "escalation_timeout_minutes": 30
+        },
+        {
+            "action_pattern": "MODIFY_ACCOUNT",
+            "chain": [
+                "agent",
+                "supervisor",
+                "admin"
+            ],
+            "escalation_timeout_minutes": 60,
+            "requires_quorum": false
+        }
+    ],
+    "metadata": {
+        "created_at": "2026-01-15T10:00:00Z",
+        "created_by": "security-team@acme-corp.com",
+        "version": "1.2.0",
+        "tags": [
+            "customer-support",
+            "production"
+        ]
+    }
+}

@@ -3,7 +3,7 @@
 # ── Build ──────────────────────────────────────────────
 build:
 	cd core && go build -o ../bin/helm ./cmd/helm/
-	cd core && go build -o ../bin/helm-node ./cmd/helm-node/
+	go build -C apps/helm-node -o ../../bin/helm-node .
 	@echo "✅ bin/helm + bin/helm-node"
 
 # ── Test ───────────────────────────────────────────────

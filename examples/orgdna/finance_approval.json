@@ -1,0 +1,119 @@
+{
+    "schema_version": "1.0.0",
+    "org_id": "globalbank-inc",
+    "pack_id": "finance-approval",
+    "description": "Governance policies for financial operations AI agents",
+    "policies": [
+        {
+            "id": "p001",
+            "name": "Small Transaction Approval",
+            "action": "APPROVE_TRANSACTION",
+            "verdict": "ALLOW",
+            "constraints": {
+                "max_amount_usd": 10000,
+                "requires_approval": []
+            },
+            "conditions": {
+                "currency": "USD",
+                "transaction_type": "domestic"
+            }
+        },
+        {
+            "id": "p002",
+            "name": "Large Transaction Approval",
+            "action": "APPROVE_TRANSACTION",
+            "verdict": "REVIEW",
+            "constraints": {
+                "max_amount_usd": 1000000,
+                "requires_approval": [
+                    "compliance_officer",
+                    "treasury_head"
+                ],
+                "cool_down_minutes": 60
+            },
+            "conditions": {
+                "amount_usd_gte": 10000
+            }
+        },
+        {
+            "id": "p003",
+            "name": "International Wire",
+            "action": "INITIATE_WIRE",
+            "verdict": "REVIEW",
+            "constraints": {
+                "requires_approval": [
+                    "compliance_officer",
+                    "aml_team"
+                ],
+                "denied_tools": [
+                    "direct_transfer"
+                ]
+            }
+        },
+        {
+            "id": "p004",
+            "name": "Account Closure",
+            "action": "CLOSE_ACCOUNT",
+            "verdict": "DENY",
+            "constraints": {
+                "requires_approval": [
+                    "branch_manager",
+                    "compliance_officer",
+                    "treasury_head"
+                ]
+            }
+        }
+    ],
+    "risk_thresholds": {
+        "max_tokens_per_request": 2048,
+        "max_requests_per_minute": 30,
+        "max_requests_per_hour": 200,
+        "budget_usd_daily": 50,
+        "budget_usd_monthly": 1000,
+        "max_concurrent_sessions": 5,
+        "max_tool_calls_per_session": 10
+    },
+    "approval_chains": [
+        {
+            "action_pattern": "APPROVE_TRANSACTION",
+            "chain": [
+                "analyst",
+                "compliance_officer"
+            ],
+            "escalation_timeout_minutes": 15
+        },
+        {
+            "action_pattern": "INITIATE_WIRE",
+            "chain": [
+                "analyst",
+                "compliance_officer",
+                "aml_team",
+                "treasury_head"
+            ],
+            "escalation_timeout_minutes": 30,
+            "requires_quorum": true
+        },
+        {
+            "action_pattern": "CLOSE_ACCOUNT",
+            "chain": [
+                "agent",
+                "branch_manager",
+                "compliance_officer",
+                "treasury_head"
+            ],
+            "escalation_timeout_minutes": 120,
+            "requires_quorum": false
+        }
+    ],
+    "metadata": {
+        "created_at": "2026-01-10T08:00:00Z",
+        "created_by": "compliance@globalbank-inc.com",
+        "version": "2.1.0",
+        "tags": [
+            "finance",
+            "regulated",
+            "production",
+            "SOX"
+        ]
+    }
+}

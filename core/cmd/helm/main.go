@@ -86,6 +86,8 @@ func Run(args []string, stdout, stderr io.Writer) int {
 	case "pack":
 		handlePack(args[2:])
 		return 0
+	case "orgdna":
+		return runOrgDNACmd(args[2:], stdout, stderr)
 	case "help", "--help", "-h":
 		printUsage(stdout)
 		return 0

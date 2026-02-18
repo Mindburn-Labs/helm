@@ -2,6 +2,7 @@ package guardian
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"time"
@@ -11,6 +12,7 @@ import (
 	"github.com/Mindburn-Labs/helm/core/pkg/contracts"
 	"github.com/Mindburn-Labs/helm/core/pkg/crypto"
 	"github.com/Mindburn-Labs/helm/core/pkg/finance"
+	"github.com/Mindburn-Labs/helm/core/pkg/pdp"
 	"github.com/Mindburn-Labs/helm/core/pkg/prg"
 )
 
@@ -32,12 +34,14 @@ func (wallClock) Now() time.Time { return time.Now() }
 type Guardian struct {
 	signer    crypto.Signer
 	prg       *prg.Graph
+	pe        *prg.PolicyEngine
 	registry  *pkg_artifact.Registry
 	clock     Clock
 	tracker   finance.Tracker
 	auditLog  *AuditLog
 	temporal  *TemporalGuardian
-	envFprint string // Boot-sequence fingerprint for DecisionRecords
+	envFprint string                  // Boot-sequence fingerprint for DecisionRecords
+	pdp       pdp.PolicyDecisionPoint // Optional pluggable policy backend
 }
 
 // NewGuardian creates a new Guardian instance.
@@ -51,9 +55,13 @@ func NewGuardian(signer crypto.Signer, ruleGraph *prg.Graph, reg *pkg_artifact.R
 	} else {
 		c = wallClock{}
 	}
+
+	pe, _ := prg.NewPolicyEngine()
+
 	return &Guardian{
 		signer:   signer,
 		prg:      ruleGraph,
+		pe:       pe,
 		registry: reg,
 		clock:    c,
 	}
@@ -77,6 +85,13 @@ func (g *Guardian) SetTemporalGuardian(tg *TemporalGuardian) {
 // SetEnvFingerprint sets the boot-sequence environment fingerprint
 func (g *Guardian) SetEnvFingerprint(fp string) {
 	g.envFprint = fp
+}
+
+// SetPolicyDecisionPoint injects an external PDP backend (OPA, Cedar, etc.).
+// When set, EvaluateDecision delegates policy evaluation to this PDP
+// while Guardian retains signing, enforcement, and proof binding.
+func (g *Guardian) SetPolicyDecisionPoint(p pdp.PolicyDecisionPoint) {
+	g.pdp = p
 }
 
 // SignDecision checks requirements and signs only if met
@@ -160,22 +175,38 @@ func (g *Guardian) SignDecision(ctx context.Context, decision *contracts.Decisio
 	}
 
 	// 4. Validate against PRG
-	valid, prgHash, err := g.prg.Validate(actionID, artifacts)
-	if err != nil {
+	rule, exists := g.prg.Rules[actionID]
+	if !exists {
 		decision.Verdict = "FAIL"
-		decision.Reason = fmt.Sprintf("PRG Violation: %v", err)
-		// We still sign the Fail decision so it's recorded
+		decision.Reason = fmt.Sprintf("no policy defined for action %s", actionID)
 		return g.signer.SignDecision(decision)
 	}
+
+	// Prepare CEL input
+	effectMap, _ := toMap(effect)
+	input := map[string]interface{}{
+		"action":    actionID,
+		"effect":    effectMap,
+		"artifacts": artifacts,
+		"timestamp": g.clock.Now().Unix(),
+	}
+
+	valid, err := g.pe.EvaluateRequirementSet(rule, input)
+	if err != nil {
+		decision.Verdict = "FAIL"
+		decision.Reason = fmt.Sprintf("PRG Evaluation Error: %v", err)
+		return g.signer.SignDecision(decision)
+	}
+
 	if !valid {
 		decision.Verdict = "FAIL"
-		decision.Reason = "PRG Validation Failed"
+		decision.Reason = "missing requirement"
 		return g.signer.SignDecision(decision)
 	}
 
 	// 5. Pass -> Sign
 	decision.Verdict = "PASS"
-	decision.RequirementSetHash = prgHash
+	decision.RequirementSetHash = rule.Hash()
 	decision.Timestamp = g.clock.Now() // Authority time (KERNEL_TCB §3)
 	// Optionally link evidence hashes in the decision record (needs schema update)
 
@@ -260,6 +291,8 @@ type DecisionRequest struct {
 
 // EvaluateDecision evaluates a request against the governance policy (PRG + Temporal).
 // It constructs a DecisionRecord and returns it.
+// When a PDP is configured, policy evaluation is delegated to it and the result
+// is bound into the DecisionRecord for receipt chain verification.
 func (g *Guardian) EvaluateDecision(ctx context.Context, req DecisionRequest) (*contracts.DecisionRecord, error) {
 	// 1. Construct Effect from Request
 	effect := &contracts.Effect{
@@ -304,6 +337,44 @@ func (g *Guardian) EvaluateDecision(ctx context.Context, req DecisionRequest) (*
 		InputContext:   req.Context,
 		EnvFingerprint: envFP,
 		PolicyVersion:  policyVersion,
+	}
+
+	// 2.5: Delegate to external PDP if configured (P0.1 competitive defense)
+	if g.pdp != nil {
+		pdpReq := &pdp.DecisionRequest{
+			Principal: req.Principal,
+			Action:    req.Action,
+			Resource:  req.Resource,
+			Context:   req.Context,
+			Timestamp: g.clock.Now(),
+		}
+		pdpResp, pdpErr := g.pdp.Evaluate(ctx, pdpReq)
+		if pdpErr != nil {
+			// Fail-closed: PDP error → DENY
+			decision.Verdict = VerdictBlock
+			decision.Reason = fmt.Sprintf("PDP error: %v", pdpErr)
+			decision.PolicyBackend = string(g.pdp.Backend())
+			_ = g.signer.SignDecision(decision)
+			return decision, nil
+		}
+
+		// Bind PDP metadata into DecisionRecord for receipt chain
+		decision.PolicyBackend = string(g.pdp.Backend())
+		decision.PolicyContentHash = g.pdp.PolicyHash()
+		decision.PolicyDecisionHash = pdpResp.DecisionHash
+
+		if !pdpResp.Allow {
+			decision.Verdict = VerdictBlock
+			decision.Reason = fmt.Sprintf("PDP deny: %s (ref=%s)", pdpResp.ReasonCode, pdpResp.PolicyRef)
+			_ = g.signer.SignDecision(decision)
+			// Audit log for PDP denials
+			if g.auditLog != nil {
+				decisionBytes, _ := canonicalize.JCS(decision)
+				_, _ = g.auditLog.Append("guardian", "PDP_DENY", decision.ID, string(decisionBytes))
+			}
+			return decision, nil
+		}
+		// PDP allowed — fall through to existing PRG + temporal checks
 	}
 
 	// 3. F3: Evaluate Temporal Guardian if wired
@@ -353,4 +424,16 @@ func responseToIntervention(level ResponseLevel) contracts.InterventionType {
 	default:
 		return contracts.InterventionNone
 	}
+}
+
+func toMap(v any) (map[string]interface{}, error) {
+	data, err := json.Marshal(v)
+	if err != nil {
+		return nil, err
+	}
+	var m map[string]interface{}
+	if err := json.Unmarshal(data, &m); err != nil {
+		return nil, err
+	}
+	return m, nil
 }

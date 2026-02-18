@@ -25,6 +25,7 @@ import (
 	"github.com/Mindburn-Labs/helm/core/pkg/mcp"
 	"github.com/Mindburn-Labs/helm/core/pkg/metering"
 	"github.com/Mindburn-Labs/helm/core/pkg/pack"
+	"github.com/Mindburn-Labs/helm/core/pkg/pdp"
 	"github.com/Mindburn-Labs/helm/core/pkg/prg"
 	"github.com/Mindburn-Labs/helm/core/pkg/proofgraph"
 	"github.com/Mindburn-Labs/helm/core/pkg/registry"
@@ -57,6 +58,14 @@ func Run(args []string, stdout, stderr io.Writer) int {
 	case "pack":
 		handlePack(args[2:])
 		return 0
+	case "synthesize":
+		return runOrgSynthesize(args[2:], stdout)
+	case "export":
+		return runExportCmd(args[2:], stdout, stderr)
+	case "verify":
+		return runVerifyCmd(args[2:], stdout, stderr)
+	case "orgdna":
+		return runOrgDNA(args[2:], stdout, stderr)
 	case "help", "--help", "-h":
 		printUsage(stdout)
 		return 0
@@ -73,11 +82,14 @@ func Run(args []string, stdout, stderr io.Writer) int {
 }
 
 func printUsage(w io.Writer) {
-	_, _ = fmt.Fprintln(w, "Usage: helm <command> [arguments]")
+	_, _ = fmt.Fprintln(w, "Usage: helm-node <command> [arguments]")
 	_, _ = fmt.Fprintln(w, "\nCommands:")
 	_, _ = fmt.Fprintln(w, "  server     Run the HELM server (default)")
 	_, _ = fmt.Fprintln(w, "  health     Check health of running server")
-	_, _ = fmt.Fprintln(w, "  coverage   Show coverage statistics")
+	_, _ = fmt.Fprintln(w, "  synthesize Compile a new OrgGenome (VGL)")
+	_, _ = fmt.Fprintln(w, "  export     Export EvidencePacks for audit")
+	_, _ = fmt.Fprintln(w, "  verify     Verify an EvidencePack (offline)")
+	_, _ = fmt.Fprintln(w, "  orgdna     Manage OrgDNA sovereign specs")
 	_, _ = fmt.Fprintln(w, "  pack       Manage packs")
 }
 
@@ -87,6 +99,31 @@ func handleCoverage(args []string) {
 
 func handlePack(args []string) {
 	log.Println("[helm] pack manager: ready")
+}
+
+func initPDP() pdp.PolicyDecisionPoint {
+	backend := os.Getenv("HELM_POLICY_BACKEND")
+	version := getenvDefault("HELM_POLICY_VERSION", "v1.0.0")
+
+	switch backend {
+	case "opa":
+		url := getenvRequired("OPA_URL")
+		return pdp.NewOPAPDP(pdp.OPAConfig{
+			URL:           url,
+			PolicyVersion: version,
+		})
+	case "cedar":
+		url := getenvRequired("CEDAR_URL")
+		return pdp.NewCedarPDP(pdp.CedarConfig{
+			URL:           url,
+			PolicyVersion: version,
+		})
+	case "helm", "":
+		return nil // Default to native CEL
+	default:
+		log.Printf("[WARN] unknown policy backend: %s, falling back to CEL", backend)
+		return nil
+	}
 }
 
 //nolint:gocognit,gocyclo
@@ -176,6 +213,15 @@ func runServer() {
 
 	// Guardian
 	guard := guardian.NewGuardian(signer, ruleGraph, artRegistry)
+
+	// Initialize PDP Backend (P0.1)
+	pdpBackend := initPDP()
+	if pdpBackend != nil {
+		guard.SetPolicyDecisionPoint(pdpBackend)
+		log.Printf("[helm] policy backend: %s (version: %s)", pdpBackend.Backend(), os.Getenv("HELM_POLICY_VERSION"))
+	} else {
+		log.Println("[helm] policy backend: native (CEL)")
+	}
 
 	// 3. Executor
 	// Minimal Catalog

@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 
 	"github.com/Mindburn-Labs/helm/core/pkg/conform"
 	"github.com/Mindburn-Labs/helm/core/pkg/conform/gates"
+	"github.com/Mindburn-Labs/helm/core/pkg/crypto"
 )
 
 // runConform implements `helm conform` per §2.1.
@@ -27,6 +29,7 @@ func runConform(args []string, stdout, stderr io.Writer) int {
 		jurisdiction string
 		outputDir    string
 		jsonOutput   bool
+		signed       bool
 		gateFilter   multiFlag
 	)
 
@@ -34,6 +37,7 @@ func runConform(args []string, stdout, stderr io.Writer) int {
 	cmd.StringVar(&jurisdiction, "jurisdiction", "", "Jurisdiction code (e.g. US, EU, APAC)")
 	cmd.StringVar(&outputDir, "output", "", "Output directory for EvidencePack (default: artifacts/conformance)")
 	cmd.BoolVar(&jsonOutput, "json", false, "Output report as JSON to stdout")
+	cmd.BoolVar(&signed, "signed", false, "Cryptographically sign the conformance report")
 	cmd.Var(&gateFilter, "gate", "Run only specific gate(s) (repeatable)")
 
 	if err := cmd.Parse(args); err != nil {
@@ -76,6 +80,28 @@ func runConform(args []string, stdout, stderr io.Writer) int {
 	if err != nil {
 		_, _ = fmt.Fprintf(stderr, "Error: conformance run failed: %v\n", err)
 		return 2
+	}
+
+	// Sign report if requested (P0.3)
+	if signed {
+		// Use an ephemeral signer for OSS release
+		signer, _ := crypto.NewEd25519Signer("ephemeral-conform-key")
+		dateStr := report.Timestamp.Format("2006-01-02")
+		evidenceDir := filepath.Join(projectRoot, "artifacts", "conformance", dateStr, report.RunID)
+		if outputDir != "" {
+			evidenceDir = filepath.Join(outputDir, dateStr, report.RunID)
+		}
+
+		err := engine.SignReport(evidenceDir, func(data []byte) (string, error) {
+			return signer.Sign(data)
+		})
+		if err != nil {
+			_, _ = fmt.Fprintf(stderr, "Error: failed to sign report: %v\n", err)
+			return 2
+		}
+		if !jsonOutput {
+			_, _ = fmt.Fprintf(stdout, "✅ Signed conformance report in %s\n\n", evidenceDir)
+		}
 	}
 
 	if jsonOutput {
