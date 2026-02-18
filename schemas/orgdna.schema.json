@@ -1,0 +1,217 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "https://helm.mindburn.io/schemas/orgdna/v1.0.0",
+    "title": "HELM OrgDNA Pack",
+    "description": "Organizational policy genome for AI agent governance",
+    "type": "object",
+    "required": [
+        "schema_version",
+        "org_id",
+        "pack_id",
+        "policies"
+    ],
+    "properties": {
+        "schema_version": {
+            "type": "string",
+            "enum": [
+                "1.0.0"
+            ],
+            "description": "Schema version"
+        },
+        "org_id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Organization identifier"
+        },
+        "pack_id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Unique pack identifier within the organization"
+        },
+        "description": {
+            "type": "string",
+            "description": "Human-readable description of this policy pack"
+        },
+        "policies": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+                "$ref": "#/definitions/policy"
+            },
+            "description": "List of governance policies"
+        },
+        "risk_thresholds": {
+            "$ref": "#/definitions/risk_thresholds",
+            "description": "Global risk thresholds"
+        },
+        "approval_chains": {
+            "type": "array",
+            "items": {
+                "$ref": "#/definitions/approval_chain"
+            },
+            "description": "Approval chain definitions"
+        },
+        "metadata": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string",
+                    "format": "date-time"
+                },
+                "created_by": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "string"
+                },
+                "tags": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            },
+            "description": "Pack metadata"
+        }
+    },
+    "definitions": {
+        "policy": {
+            "type": "object",
+            "required": [
+                "id",
+                "name",
+                "action"
+            ],
+            "properties": {
+                "id": {
+                    "type": "string",
+                    "pattern": "^p[0-9]+$",
+                    "description": "Policy identifier (e.g. p001)"
+                },
+                "name": {
+                    "type": "string",
+                    "description": "Human-readable policy name"
+                },
+                "action": {
+                    "type": "string",
+                    "description": "Action this policy governs"
+                },
+                "verdict": {
+                    "type": "string",
+                    "enum": [
+                        "ALLOW",
+                        "DENY",
+                        "REVIEW"
+                    ],
+                    "default": "ALLOW",
+                    "description": "Default verdict for this policy"
+                },
+                "constraints": {
+                    "type": "object",
+                    "properties": {
+                        "max_amount_usd": {
+                            "type": "number",
+                            "minimum": 0
+                        },
+                        "requires_approval": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "cool_down_minutes": {
+                            "type": "integer",
+                            "minimum": 0
+                        },
+                        "max_retries": {
+                            "type": "integer",
+                            "minimum": 0
+                        },
+                        "allowed_tools": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "denied_tools": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "description": "Policy constraints"
+                },
+                "conditions": {
+                    "type": "object",
+                    "additionalProperties": true,
+                    "description": "Conditional evaluation context"
+                }
+            }
+        },
+        "risk_thresholds": {
+            "type": "object",
+            "properties": {
+                "max_tokens_per_request": {
+                    "type": "integer",
+                    "minimum": 1
+                },
+                "max_requests_per_minute": {
+                    "type": "integer",
+                    "minimum": 1
+                },
+                "max_requests_per_hour": {
+                    "type": "integer",
+                    "minimum": 1
+                },
+                "budget_usd_daily": {
+                    "type": "number",
+                    "minimum": 0
+                },
+                "budget_usd_monthly": {
+                    "type": "number",
+                    "minimum": 0
+                },
+                "max_concurrent_sessions": {
+                    "type": "integer",
+                    "minimum": 1
+                },
+                "max_tool_calls_per_session": {
+                    "type": "integer",
+                    "minimum": 1
+                }
+            }
+        },
+        "approval_chain": {
+            "type": "object",
+            "required": [
+                "action_pattern",
+                "chain"
+            ],
+            "properties": {
+                "action_pattern": {
+                    "type": "string",
+                    "description": "Glob pattern matching action names"
+                },
+                "chain": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "minItems": 1,
+                    "description": "Ordered list of approvers"
+                },
+                "escalation_timeout_minutes": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "description": "Minutes before auto-escalation"
+                },
+                "requires_quorum": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Whether majority approval is sufficient"
+                }
+            }
+        }
+    }
+}
