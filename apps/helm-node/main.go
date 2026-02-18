@@ -64,6 +64,8 @@ func Run(args []string, stdout, stderr io.Writer) int {
 		return runExportCmd(args[2:], stdout, stderr)
 	case "verify":
 		return runVerifyCmd(args[2:], stdout, stderr)
+	case "orgdna":
+		return runOrgDNA(args[2:], stdout, stderr)
 	case "help", "--help", "-h":
 		printUsage(stdout)
 		return 0
@@ -87,6 +89,7 @@ func printUsage(w io.Writer) {
 	_, _ = fmt.Fprintln(w, "  synthesize Compile a new OrgGenome (VGL)")
 	_, _ = fmt.Fprintln(w, "  export     Export EvidencePacks for audit")
 	_, _ = fmt.Fprintln(w, "  verify     Verify an EvidencePack (offline)")
+	_, _ = fmt.Fprintln(w, "  orgdna     Manage OrgDNA sovereign specs")
 	_, _ = fmt.Fprintln(w, "  pack       Manage packs")
 }
 
