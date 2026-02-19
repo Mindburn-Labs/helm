@@ -30,6 +30,8 @@ func (m *MockSigner) Sign(data []byte) (string, error) {
 
 func (m *MockSigner) PublicKey() string { return "mock_key" }
 
+func (m *MockSigner) PublicKeyBytes() []byte { return []byte("mock_key") }
+
 func (m *MockSigner) SignDecision(d *contracts.DecisionRecord) error {
 	if m.FailSign {
 		return errors.New("signer broken")

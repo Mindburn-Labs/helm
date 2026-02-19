@@ -118,7 +118,7 @@ const (
 
 func printUsage(w io.Writer) {
 	fmt.Fprintln(w, "")
-	fmt.Fprintf(w, "%sHELM Kernel %s%s\n", ColorBold+ColorBlue, "v0.1.0", ColorReset)
+	fmt.Fprintf(w, "%sHELM Kernel %s%s\n", ColorBold+ColorBlue, "v0.1.1", ColorReset)
 	fmt.Fprintf(w, "%sModels propose. The kernel disposes.%s\n", ColorGray, ColorReset)
 	fmt.Fprintln(w, "")
 	fmt.Fprintf(w, "%sUSAGE:%s\n", ColorBold, ColorReset)

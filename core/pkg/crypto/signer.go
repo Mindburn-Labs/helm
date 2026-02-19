@@ -93,7 +93,6 @@ func (s *Ed25519Signer) SignDecision(d *contracts.DecisionRecord) error {
 		return err
 	}
 	d.Signature = sig
-	d.Signature = sig
 	d.SignatureType = SigPrefixEd25519 + SigSeparator + s.KeyID
 	return nil
 }

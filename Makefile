@@ -64,7 +64,7 @@ sbom: build
 # ── Provenance ─────────────────────────────────────────
 provenance:
 	cd core && CGO_ENABLED=0 go build -ldflags="-s -w \
-		-X main.version=0.1.0 \
+		-X main.version=0.1.1 \
 		-X main.commit=$$(git rev-parse HEAD) \
 		-X main.buildTime=$$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
 		-o ../bin/helm ./cmd/helm/

@@ -2,6 +2,20 @@
 
 All notable changes to HELM Core OSS are documented here.
 
+## [0.1.1] — 2026-02-19
+
+### Fixed
+
+- Resolved `MockSigner` build failure in `core/pkg/guardian` by implementing missing `PublicKeyBytes`.
+- Fixed redundant signature assignment in `Ed25519Signer.SignDecision`.
+- Standardized `ImmunityVerifier` hashing logic and cleaned up misleading test comments.
+- Corrected version display in `helm` CLI help output.
+
+### Improved
+
+- Increased `governance` package test coverage from 60.8% to 79.5%.
+- Added comprehensive unit tests for `LifecycleManager`, `PolicyEngine`, `EvolutionGovernance`, `SignalController`, and `StateEstimator`.
+
 ## [0.1.0] — 2026-02-15
 
 ### Added
