@@ -1,6 +1,6 @@
 module github.com/Mindburn-Labs/helm/apps/helm-node
 
-go 1.24.13
+go 1.22
 
 require (
 	github.com/Mindburn-Labs/helm/core v0.0.0

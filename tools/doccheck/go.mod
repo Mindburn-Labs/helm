@@ -1,3 +1,3 @@
 module github.com/Mindburn-Labs/helm/tools/doccheck
 
-go 1.24.0
+go 1.22

@@ -1,6 +1,6 @@
 module github.com/Mindburn-Labs/helm/core
 
-go 1.24.13
+go 1.22
 
 require (
 	cloud.google.com/go/storage v1.60.0
