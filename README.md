@@ -329,7 +329,7 @@ See [docs/ROADMAP.md](docs/ROADMAP.md). 10 items, no dates, each tied to a confo
 
 ## License
 
-[Business Source License 1.1](LICENSE) — converts to Apache 2.0 on 2030-02-15.
+[Apache License 2.0](LICENSE)
 
 ---
 
