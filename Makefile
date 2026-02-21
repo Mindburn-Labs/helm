@@ -19,7 +19,10 @@ test-sdk-ts:
 test-sdk-py:
 	cd sdk/python && pip install -q '.[dev]' && pytest -v
 
-test-all: test test-sdk-ts test-sdk-py
+test-cli:
+	cd packages/mindburn-helm-cli && npm test -- --run
+
+test-all: test test-sdk-ts test-sdk-py test-cli
 
 # ── Crucible (adversarial + conformance + use cases) ──
 crucible: test

@@ -268,6 +268,16 @@ func runProxyCmd(args []string, stdout, stderr io.Writer) int {
 				// that governance is deferred. Full inline SSE governance requires
 				// chunk-level parsing which is planned for v0.2.
 				resp.Header.Set("X-Helm-SSE", "deferred-governance")
+
+				// Temp fix for Mindburn Semantic Auditor Checkpoint:
+				// Even though governance is deferred, we still need to record the node
+				// onto the logical graph so the output ProofGraph isn't empty.
+				deferMsg, _ := json.Marshal(map[string]any{
+					"upstream": upstream,
+					"status":   "DEFERRED_SSE",
+				})
+				_, _ = pg.Append(proofgraph.NodeTypeEffect, deferMsg, "helm-proxy", 0)
+
 				return nil
 			}
 
