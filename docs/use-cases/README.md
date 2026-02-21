@@ -2,7 +2,7 @@
 
 The use case documentation has been consolidated:
 
-- **`docs/use_cases/`** — Canonical directory containing executable shell scripts (UC-001 through UC-012)
+- **`docs/use-cases/`** — Canonical directory containing executable shell scripts (UC-001 through UC-012)
 - **`docs/use-cases/`** — Markdown descriptions for each use case
 
 Both directories follow the same UC-NNN numbering. The markdown directory provides human-readable descriptions while the scripts directory provides executable demonstrations.

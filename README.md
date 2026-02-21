@@ -90,12 +90,12 @@ npx @mindburn/helm --ci --bundle ./evidence 2>/dev/null | jq .verdict
 
 | Pain (postmortem you're preventing) | HELM behavior | Receipt reason code | Proof |
 |------------------------------------|---------------|--------------------|---------|
-| Tool-call overspend blows budget | ACID budget locks, fail-closed on ceiling breach | `DENY_BUDGET_EXCEEDED` | [UC-005](docs/use_cases/UC-005_wasi_gas_exhaustion.sh) |
-| Schema drift breaks prod silently | Fail-closed on input AND output schema mismatch | `DENY_SCHEMA_MISMATCH` | [UC-002](docs/use_cases/UC-002_schema_mismatch.sh), [UC-009](docs/use_cases/UC-009_connector_drift.sh) |
-| Untrusted WASM runs wild | Sandbox: gas + time + memory budgets, deterministic traps | `DENY_GAS_EXHAUSTION` | [UC-004](docs/use_cases/UC-004_wasi_transform.sh) |
-| "Who approved that?" disputes | Timelock + challenge/response ceremony, Ed25519 signed | `DENY_APPROVAL_REQUIRED` | [UC-003](docs/use_cases/UC-003_approval_ceremony.sh) |
-| No audit trail for regulators | Deterministic EvidencePack, offline verifiable, replay from genesis | — | [UC-008](docs/use_cases/UC-008_replay_verify.sh) |
-| Can't prove compliance to auditors | Conformance L1 + L2 gates, 12 runnable use cases | — | [UC-012](docs/use_cases/UC-012_openai_proxy.sh) |
+| Tool-call overspend blows budget | ACID budget locks, fail-closed on ceiling breach | `DENY_BUDGET_EXCEEDED` | [UC-005](docs/use-cases/UC-005_wasi_gas_exhaustion.sh) |
+| Schema drift breaks prod silently | Fail-closed on input AND output schema mismatch | `DENY_SCHEMA_MISMATCH` | [UC-002](docs/use-cases/UC-002_schema_mismatch.sh), [UC-009](docs/use-cases/UC-009_connector_drift.sh) |
+| Untrusted WASM runs wild | Sandbox: gas + time + memory budgets, deterministic traps | `DENY_GAS_EXHAUSTION` | [UC-004](docs/use-cases/UC-004_wasi_transform.sh) |
+| "Who approved that?" disputes | Timelock + challenge/response ceremony, Ed25519 signed | `DENY_APPROVAL_REQUIRED` | [UC-003](docs/use-cases/UC-003_approval_ceremony.sh) |
+| No audit trail for regulators | Deterministic EvidencePack, offline verifiable, replay from genesis | — | [UC-008](docs/use-cases/UC-008_replay_verify.sh) |
+| Can't prove compliance to auditors | Conformance L1 + L2 gates, 12 runnable use cases | — | [UC-012](docs/use-cases/UC-012_openai_proxy.sh) |
 
 ---
 
@@ -324,8 +324,8 @@ OSS targets L1/L2 core conformance. The spec contains L3 and enterprise extensio
 ## Security Posture
 
 - **TCB isolation gate** — 8-package kernel boundary, CI-enforced forbidden imports ([TCB Policy](docs/TCB_POLICY.md))
-- **Bounded compute gate** — WASI sandbox with gas/time/memory caps, deterministic traps on breach ([UC-005](docs/use_cases/UC-005_wasi_gas_exhaustion.sh))
-- **Schema drift fail-closed** — JCS canonicalization + SHA-256 on every tool call, both input and output ([UC-002](docs/use_cases/UC-002_schema_mismatch.sh))
+- **Bounded compute gate** — WASI sandbox with gas/time/memory caps, deterministic traps on breach ([UC-005](docs/use-cases/UC-005_wasi_gas_exhaustion.sh))
+- **Schema drift fail-closed** — JCS canonicalization + SHA-256 on every tool call, both input and output ([UC-002](docs/use-cases/UC-002_schema_mismatch.sh))
 
 See also: [SECURITY.md](SECURITY.md) (vulnerability reporting) · [Threat Model](docs/THREAT_MODEL.md) (9 adversary classes)
 

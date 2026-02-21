@@ -76,7 +76,7 @@ Every step produced signed, append-only, replayable proof.
 - 🔒 [Security Model](../docs/SECURITY_MODEL.md) — TCB, threat model, crypto chain
 - 🐳 [Deploy your own](../deploy/README.md) — 3-minute DigitalOcean deploy
 - 📦 [SDK](../sdk/) — Python + TypeScript client libraries
-- 📋 [Use Cases](../docs/use_cases/) — UC-001 through UC-012
+- 📋 [Use Cases](../docs/use-cases/) — UC-001 through UC-012
 
 ---
 
