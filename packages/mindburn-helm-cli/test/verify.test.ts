@@ -48,6 +48,7 @@ function createBundle(root: string, opts?: { failGates?: string[] }): void {
     const failGates = new Set(opts?.failGates ?? []);
     const gateResults = LEVELS.L2.gates.map((gateId) => ({
         gate_id: gateId,
+        status: (failGates.has(gateId) ? "fail" : "pass") as "pass" | "fail",
         pass: !failGates.has(gateId),
         reasons: failGates.has(gateId) ? ["TEST_FAILURE"] : [],
         evidence_paths: [],
@@ -67,6 +68,7 @@ function createBundle(root: string, opts?: { failGates?: string[] }): void {
 
     // Index
     const index: IndexManifest = {
+        format_version: "3.0.0",
         run_id: "fixture-run-001",
         profile: "CORE",
         created_at: "2026-02-21T12:00:00Z",
@@ -76,13 +78,13 @@ function createBundle(root: string, opts?: { failGates?: string[] }): void {
                 path: "01_SCORE.json",
                 sha256: sha256(scoreJson),
                 size_bytes: Buffer.byteLength(scoreJson),
-                content_type: "application/json",
+                kind: "helm:report",
             },
             {
                 path: "02_PROOFGRAPH/graph.json",
                 sha256: sha256(evidence),
                 size_bytes: Buffer.byteLength(evidence),
-                content_type: "application/json",
+                kind: "helm:report",
             },
         ],
     };
@@ -216,6 +218,7 @@ describe("verifyBundle", () => {
     it("output matches stable schema", async () => {
         const r = await verifyBundle(valid, "L2");
         // Required top-level fields
+        expect(r).toHaveProperty("schema_version", "1");
         expect(r).toHaveProperty("tool");
         expect(r).toHaveProperty("artifact");
         expect(r).toHaveProperty("verdict");

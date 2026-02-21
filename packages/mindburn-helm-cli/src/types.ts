@@ -1,5 +1,6 @@
 // ─── HELM CLI v3 Types ───────────────────────────────────────────────────────
 // Stable JSON schema for all CLI inputs and outputs.
+// Schema version: 1
 
 /** Conformance level shortcut. */
 export type ConformanceLevel = "L1" | "L2";
@@ -14,23 +15,33 @@ export interface CLIOptions {
     report?: string;
     noCache: boolean;
     cacheDir?: string;
+    allowUnsigned: boolean;
     help: boolean;
     version: boolean;
 }
 
 // ─── Bundle Schema ───────────────────────────────────────────────────────────
 
-/** §3.2 Index entry in 00_INDEX.json. */
+/**
+ * Evidence Pack entry kind vocabulary (open — extend as needed).
+ * Recommended values use a namespace prefix:
+ *   helm:log, helm:proofgraph, helm:snapshot, helm:report,
+ *   helm:manifest, helm:schema, helm:tape, helm:other
+ */
+export type EntryKind = string;
+
+/** Index entry in 00_INDEX.json. */
 export interface IndexEntry {
     path: string;
     sha256: string;
     size_bytes: number;
-    schema_version?: string;
-    content_type: string;
+    kind: EntryKind;
+    meta?: Record<string, unknown>;
 }
 
-/** §3.1 Index manifest (00_INDEX.json). */
+/** Index manifest (00_INDEX.json). */
 export interface IndexManifest {
+    format_version: string;
     run_id: string;
     profile: string;
     created_at: string;
@@ -38,9 +49,16 @@ export interface IndexManifest {
     entries: IndexEntry[];
 }
 
-/** §6.1 Gate result from 01_SCORE.json. */
+// ─── Gate Results ────────────────────────────────────────────────────────────
+
+/** Gate evaluation status. */
+export type GateStatus = "pass" | "fail" | "skip" | "na" | "error";
+
+/** Gate result from 01_SCORE.json. */
 export interface GateResult {
     gate_id: string;
+    status: GateStatus;
+    /** @deprecated Use `status` instead. Kept for backward compat. */
     pass: boolean;
     reasons: string[];
     evidence_paths: string[];
@@ -59,10 +77,19 @@ export interface ConformanceReport {
     pass: boolean;
     gate_results: GateResult[];
     duration: number | string;
+    bundle_root?: string;
+    merkle_root?: string;
     metadata?: Record<string, unknown>;
 }
 
 // ─── Attestation Schema ──────────────────────────────────────────────────────
+
+/** Producer metadata embedded in attestation. */
+export interface Producer {
+    name: string;
+    version: string;
+    commit?: string;
+}
 
 /** v3 release attestation — signed with Ed25519. */
 export interface Attestation {
@@ -73,7 +100,9 @@ export interface Attestation {
     manifest_root_hash: string;
     merkle_root: string;
     created_at: string;
-    profiles_version?: string;
+    profiles_manifest_sha256: string;
+    keys_key_id: string;
+    producer: Producer;
 }
 
 // ─── Verification Result Types ───────────────────────────────────────────────
@@ -117,9 +146,70 @@ export interface AttestationCheck {
     attestation?: Attestation;
 }
 
-/** Complete verification result — stable JSON output schema. */
+// ─── CI Output Schema (v1) ──────────────────────────────────────────────────
+
+/** Structured data payload for integrators. */
+export interface CIOutputData {
+    tool: { name: string; version: string };
+    artifact: {
+        source: "latest_release" | "local_bundle";
+        release_tag?: string;
+        asset_name?: string;
+        asset_sha256?: string;
+        bundle_path?: string;
+        cache_path?: string;
+    };
+    profile: {
+        level: string;
+        gates_requested: string[];
+        gates_run: string[];
+    };
+    timing_ms: {
+        total: number;
+        download?: number;
+        verify?: number;
+    };
+    gates: Array<{
+        id: string;
+        status: GateStatus;
+        duration_ms: number;
+        reason_code?: string;
+        detail_path?: string;
+    }>;
+    attestation?: {
+        keys_key_id?: string;
+        profiles_manifest_sha256?: string;
+        producer?: Producer;
+    };
+    links?: {
+        release_url?: string;
+        report_url?: string;
+    };
+}
+
+/**
+ * Complete CI output — stable JSON schema (v1).
+ *
+ * Top-level: flat convenience fields for `jq .verdict` ergonomics.
+ * data: structured payload for integrators and website.
+ */
+export interface CIOutput {
+    schema_version: "1";
+    // ── Flat convenience (jq-friendly) ──
+    verdict: "PASS" | "FAIL" | "ERROR" | "NOT_FOUND";
+    exit_code: 0 | 1 | 2 | 3;
+    bundle_root: string;
+    merkle_root: string;
+    release_tag?: string;
+    report_path?: string;
+    // ── Structured data ──
+    data: CIOutputData;
+}
+
+/** Internal verification result (used before CI output transform). */
 export interface VerificationResult {
-    tool: "@mindburn/helm";
+    schema_version: "1";
+    tool: string;
     artifact: string;
     verdict: "PASS" | "FAIL";
     profile: string;

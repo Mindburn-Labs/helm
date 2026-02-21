@@ -86,6 +86,7 @@ export async function verifyBundle(
     const pass = structure.pass && hashChain.pass && signature.pass && gates.pass;
 
     return {
+        schema_version: "1",
         tool: "@mindburn/helm",
         artifact: bundlePath,
         verdict: pass ? "PASS" : "FAIL",
@@ -267,8 +268,17 @@ function checkGates(scoreData: Buffer | null, level: ConformanceLevel): GateChec
 
     const requiredGates = new Set(LEVELS[level].gates);
     const filtered = report.gate_results.filter((g) => requiredGates.has(g.gate_id));
-    const passed = filtered.filter((g) => g.pass);
-    const failed = filtered.filter((g) => !g.pass);
+
+    // Use status field (preferred) with fallback to pass boolean for backward compat
+    const isGatePassing = (g: GateResult): boolean => {
+        if (g.status) {
+            return g.status === "pass" || g.status === "skip" || g.status === "na";
+        }
+        return g.pass;
+    };
+
+    const passed = filtered.filter(isGatePassing);
+    const failed = filtered.filter((g) => !isGatePassing(g));
 
     return {
         pass: failed.length === 0 && filtered.length === requiredGates.size,

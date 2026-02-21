@@ -48,6 +48,7 @@ const HELP = `
     --json           Alias for --ci
     --depth 0-3      Output verbosity (default: 1)
     --report PATH    Generate single-file HTML evidence report
+    --allow-unsigned Allow unsigned local bundles (default: false)
     --no-cache       Skip cache for downloads
     --cache-dir DIR  Custom cache directory (default: ~/.helm/cache)
     --help           Show this help
@@ -78,6 +79,7 @@ function parseOptions(): CLIOptions {
             json: { type: "boolean", default: false },
             depth: { type: "string", default: "1" },
             report: { type: "string" },
+            "allow-unsigned": { type: "boolean", default: false },
             "no-cache": { type: "boolean", default: false },
             "cache-dir": { type: "string" },
             help: { type: "boolean", short: "h", default: false },
@@ -106,6 +108,7 @@ function parseOptions(): CLIOptions {
         json: values.json ?? false,
         depth,
         report: values.report,
+        allowUnsigned: values["allow-unsigned"] ?? false,
         noCache: values["no-cache"] ?? false,
         cacheDir: values["cache-dir"],
         help: values.help ?? false,

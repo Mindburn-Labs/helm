@@ -22,7 +22,12 @@ test-sdk-py:
 test-cli:
 	cd packages/mindburn-helm-cli && npm test -- --run
 
-test-all: test test-sdk-ts test-sdk-py test-cli
+verify-fixtures:
+	@echo "Verifying golden fixtures..."
+	@cd packages/mindburn-helm-cli && npx tsx ../../../scripts/verify-fixture-roots.mts
+	@echo "Golden fixture roots verified"
+
+test-all: test test-sdk-ts test-sdk-py test-cli verify-fixtures
 
 # ── Crucible (adversarial + conformance + use cases) ──
 crucible: test
