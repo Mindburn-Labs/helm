@@ -82,6 +82,8 @@ fi
 
 CREATED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 PROFILES_VERSION=$(jq -r '.version // "1.0.0"' packages/mindburn-helm-cli/src/profiles.json 2>/dev/null || echo "1.0.0")
+PROFILES_SHA256=$(shasum -a 256 packages/mindburn-helm-cli/src/profiles.json 2>/dev/null | awk '{print $1}' || echo "")
+KEYS_KEY_ID=$(jq -r '.keys[0].id // "helm-oss-v1"' docs/cli_v3/KEYS.md 2>/dev/null || echo "helm-oss-v1")
 
 cat > "${OUTPUT_DIR}/${ATTESTATION_NAME}" <<EOF
 {
@@ -92,7 +94,14 @@ cat > "${OUTPUT_DIR}/${ATTESTATION_NAME}" <<EOF
   "manifest_root_hash": "${MANIFEST_ROOT_HASH}",
   "merkle_root": "${MERKLE_ROOT}",
   "created_at": "${CREATED_AT}",
-  "profiles_version": "${PROFILES_VERSION}"
+  "profiles_version": "${PROFILES_VERSION}",
+  "profiles_manifest_sha256": "${PROFILES_SHA256}",
+  "keys_key_id": "${KEYS_KEY_ID}",
+  "producer": {
+    "name": "helm-release-pipeline",
+    "version": "${VERSION}",
+    "commit": "$(git rev-parse HEAD 2>/dev/null || echo unknown)"
+  }
 }
 EOF
 

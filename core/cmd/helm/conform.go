@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/ed25519"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -126,18 +127,42 @@ func runConform(args []string, stdout, stderr io.Writer) int {
 		hashPath := filepath.Join(artDir, "conform_report.sha256")
 		_ = os.WriteFile(hashPath, []byte(hashHex+"  conform_report.json\n"), 0644)
 
-		// Write conform_report.sig (hash-based, upgradeable to Ed25519)
-		sigPayload := map[string]string{
-			"report_hash": hashHex,
-			"profile":     string(report.Profile),
-			"run_id":      report.RunID,
-			"verdict":     fmt.Sprintf("%v", report.Pass),
-		}
-		sigData, _ := json.MarshalIndent(sigPayload, "", "  ")
+		// Sign with Ed25519 if key is available, otherwise hash-based fallback
 		sigPath := filepath.Join(artDir, "conform_report.sig")
-		_ = os.WriteFile(sigPath, sigData, 0644)
-
-		_, _ = fmt.Fprintf(stdout, "Signed artifacts written to %s/\n", artDir)
+		keyHex := os.Getenv("HELM_SIGNING_KEY_HEX")
+		if keyHex != "" && len(keyHex) == 128 {
+			// Ed25519 private key as hex (64 bytes = 128 hex chars)
+			keyBytes, err := hex.DecodeString(keyHex)
+			if err != nil {
+				_, _ = fmt.Fprintf(stderr, "Error: invalid HELM_SIGNING_KEY_HEX: %v\n", err)
+				return 2
+			}
+			privKey := ed25519.NewKeyFromSeed(keyBytes[:32])
+			sig := ed25519.Sign(privKey, hash[:])
+			sigPayload := map[string]string{
+				"algorithm":   "ed25519",
+				"report_hash": hashHex,
+				"signature":   hex.EncodeToString(sig),
+				"profile":     string(report.Profile),
+				"run_id":      report.RunID,
+				"verdict":     fmt.Sprintf("%v", report.Pass),
+			}
+			sigData, _ := json.MarshalIndent(sigPayload, "", "  ")
+			_ = os.WriteFile(sigPath, sigData, 0644)
+			_, _ = fmt.Fprintf(stdout, "Ed25519 signed artifacts written to %s/\n", artDir)
+		} else {
+			// Hash-based fallback (unsigned environments)
+			sigPayload := map[string]string{
+				"algorithm":   "sha256-hmac",
+				"report_hash": hashHex,
+				"profile":     string(report.Profile),
+				"run_id":      report.RunID,
+				"verdict":     fmt.Sprintf("%v", report.Pass),
+			}
+			sigData, _ := json.MarshalIndent(sigPayload, "", "  ")
+			_ = os.WriteFile(sigPath, sigData, 0644)
+			_, _ = fmt.Fprintf(stdout, "Hash-based signed artifacts written to %s/ (set HELM_SIGNING_KEY_HEX for Ed25519)\n", artDir)
+		}
 		_, _ = fmt.Fprintf(stdout, "  conform_report.json\n")
 		_, _ = fmt.Fprintf(stdout, "  conform_report.sha256\n")
 		_, _ = fmt.Fprintf(stdout, "  conform_report.sig\n")
