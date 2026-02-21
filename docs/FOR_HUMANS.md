@@ -1,4 +1,4 @@
-# HELM for Humans 🧠
+# HELM for Humans
 
 If you just want to stop your AI from doing things it shouldn't, this is for you. No UCS/UCS jargon, just the facts.
 

@@ -15,7 +15,7 @@ BLUE='\033[0;34m'
 BOLD='\033[1m'
 NC='\033[0m' # No Color
 
-echo -e "${BOLD}🚀 HELM Installer${NC}"
+echo -e "${BOLD}HELM Installer${NC}"
 echo -e "${BLUE}Models propose. The kernel disposes.${NC}"
 echo ""
 

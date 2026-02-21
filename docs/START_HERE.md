@@ -1,4 +1,4 @@
-# 🚀 Start Here: 5-Minute Quickstart + Conformance
+# Start Here: 5-Minute Quickstart + Conformance
 
 Everything you need to go from zero to verified HELM in under 5 minutes.
 

@@ -8,7 +8,7 @@ HOST="${1:-demo.mindburn.org}"
 USER="root"
 DIR="/opt/helm"
 
-echo "🚀 Deploying to $USER@$HOST..."
+echo "Deploying to $USER@$HOST..."
 
 # 1. Sync Code
 echo "Syncing code..."

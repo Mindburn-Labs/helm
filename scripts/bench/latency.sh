@@ -19,7 +19,7 @@ if [ -z "$OPENAI_API_KEY" ]; then
     exit 1
 fi
 
-echo -e "${BOLD}🚀 HELM Performance Benchmark${NC}"
+echo -e "${BOLD}HELM Performance Benchmark${NC}"
 echo "─────────────────────────────────────────"
 
 PAYLOAD='{

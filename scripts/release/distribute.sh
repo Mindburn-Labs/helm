@@ -17,7 +17,7 @@ if [ -z "$VERSION" ]; then
     exit 1
 fi
 
-echo "🚀 Distributing HELM $VERSION across all ecosystems..."
+echo "Distributing HELM $VERSION across all ecosystems..."
 
 # 1. Go (via Git Tags)
 echo "🐹 Tagging Go SDK..."

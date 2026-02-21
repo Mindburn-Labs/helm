@@ -7,7 +7,7 @@ set -euo pipefail
 
 BASE_URL="${1:-http://localhost:8080}"
 
-echo "🔥 HELM Demo Smoke Test: $BASE_URL"
+echo "HELM Demo Smoke Test: $BASE_URL"
 echo "-----------------------------------"
 
 # 1. Health Check

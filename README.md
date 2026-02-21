@@ -9,11 +9,11 @@
 
 HELM is a high-performance, deterministic proxy for LLM tool calling. It enforces mathematical and legal boundaries on AI agents in real-time, generating a tamper-proof **ProofGraph** of every decision.
 
-**[Read HELM for Humans 🧠](docs/FOR_HUMANS.md)** — A non-technical overview of why this exists.
+**[Read HELM for Humans](docs/FOR_HUMANS.md)** — A non-technical overview of why this exists.
 
 ---
 
-## 🚀 Quickstart
+## Quickstart
 
 Install the HELM CLI and start governing in 60 seconds:
 
