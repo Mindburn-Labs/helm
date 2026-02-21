@@ -1,2 +1,0 @@
-This document has been moved to the repository root as the normative standard:
-[HELM_Unified_Canonical_Standard_FINAL_2026-02-15_FINAL_SOTA_v1.2.md](../HELM_Unified_Canonical_Standard_FINAL_2026-02-15_FINAL_SOTA_v1.2.md)

@@ -2,6 +2,30 @@
 
 All notable changes to HELM Core OSS are documented here.
 
+## [3.0.0] — 2026-02-21
+
+### Added
+
+- **`@mindburn/helm` CLI v3** — `npx @mindburn/helm` for one-command verification with progressive disclosure, cryptographic proof (Ed25519 + real Merkle tree), and HTML evidence reports.
+- **v3 bundle format spec** (`docs/cli_v3/FORMAT.md`) — canonicalization rules, Merkle tree construction, attestation schema.
+- **Key rotation policy** (`docs/cli_v3/KEYS.md`).
+- **Release pipeline** — evidence bundle build job with Ed25519 attestation signing in `release.yml`.
+- **Verification guide** (`docs/verify.md`).
+
+### Security
+
+- **Removed `.env.release`** containing plaintext tokens from repo and git history.
+- **Purged 376MB of compiled binaries** from `artifacts/` tracked in git history via `git filter-repo`.
+- **Hardened `.gitignore`** — secrets hard lock (`.env*`, `*.key`, `*.pem`), `artifacts/` blanket ignore.
+- Removed committed encrypted cookie from `core/pkg/console/.auth/`.
+
+### Removed
+
+- `cli/` directory (v2, superseded by `packages/mindburn-helm-cli/`).
+- Internal planning docs: `OSS_CUTLINE.md`, `UNKNOWNs.md`, TITAN docs, investment memo.
+- Dead redirect stubs for `HELM_Unified_Canonical_Standard.md`.
+
+
 ## [0.1.1] — 2026-02-19
 
 ### Fixed

@@ -1,9 +1,8 @@
 # HELM — Fail-Closed Tool Calling for AI Agents
 
 [![Build](https://github.com/Mindburn-Labs/helm/actions/workflows/helm_core_gates.yml/badge.svg)](https://github.com/Mindburn-Labs/helm/actions/workflows/helm_core_gates.yml)
-[![Conformance L1](https://img.shields.io/badge/conformance-L1%20pass-brightgreen)](docs/use_cases/UC-012_openai_proxy.sh)
-[![Conformance L2](https://img.shields.io/badge/conformance-L2%20pass-brightgreen)](docs/use_cases/UC-012_openai_proxy.sh)
-[![SBOM](https://img.shields.io/badge/SBOM-CycloneDX%201.5-blue)](sbom.json)
+[![Conformance](https://img.shields.io/badge/conformance-L1%20%2B%20L2-brightgreen)](docs/CONFORMANCE.md)
+[![Verify](https://img.shields.io/badge/verify-npx%20%40mindburn%2Fhelm-blue)](docs/verify.md)
 [![Provenance](https://img.shields.io/badge/provenance-SLSA-blue)](https://github.com/Mindburn-Labs/helm/releases)
 
 **Models propose. The kernel disposes.**
@@ -67,6 +66,23 @@ curl -s http://localhost:8080/api/v1/receipts?limit=1 | jq '.[0].receipt_hash'
 ```
 
 Full walkthrough: [docs/QUICKSTART.md](docs/QUICKSTART.md) · [docs/POLICY_BACKENDS.md](docs/POLICY_BACKENDS.md) · [docs/VERIFIER_TRUST_MODEL.md](docs/VERIFIER_TRUST_MODEL.md) · [docs/PROCUREMENT.md](docs/PROCUREMENT.md)
+
+---
+
+## 🔍 Verify Any Release
+
+```bash
+npx @mindburn/helm
+```
+
+One command, progressive disclosure, cryptographic proof. Supports interactive and CI modes:
+
+```bash
+# CI mode — JSON on stdout, exit code 0/1
+npx @mindburn/helm --ci --bundle ./evidence 2>/dev/null | jq .verdict
+```
+
+→ Full guide: [docs/verify.md](docs/verify.md)
 
 ---
 
@@ -252,7 +268,7 @@ Your App (OpenAI SDK)
 | ✅ Conformance L1 + L2 | 🔮 Conformance L3 (enterprise) |
 | ✅ 11 CLI commands | 🔮 Production key management (HSM) |
 
-Full cutline: [docs/OSS_CUTLINE.md](docs/OSS_CUTLINE.md)
+Full scope details in [docs/OSS_SCOPE.md](docs/OSS_SCOPE.md)
 
 ---
 
@@ -288,30 +304,26 @@ helm/
 ├── core/               # Go kernel (8-package TCB + executor + ProofGraph)
 │   ├── cmd/helm/       # CLI: proxy, export, verify, replay, conform, ...
 │   └── cmd/helm-node/  # Kernel API server
+├── packages/
+│   └── mindburn-helm-cli/  # @mindburn/helm v3 (npm CLI)
 ├── sdk/                # Multi-language SDKs (TS, Python, Go, Rust, Java)
-│   ├── ts/             #   npm @mindburn/helm-sdk
-│   ├── python/         #   pip helm-sdk
-│   ├── go/             #   go get .../sdk/go
-│   ├── rust/           #   cargo add helm-sdk
-│   └── java/           #   mvn ai.mindburn.helm:helm-sdk
 ├── examples/           # Runnable examples per language + MCP
-├── scripts/sdk/        # Type generator (gen.sh)
-├── scripts/ci/         # SDK drift + build gates
+├── scripts/            # Release, CI, SDK generation
 ├── deploy/             # Caddy config, demo compose, deploy guide
-├── docs/               # Threat model, quickstart, demo, SDK docs
+├── docs/               # Threat model, quickstart, verify, conformance
 └── Makefile            # build, test, crucible, demo, release-binaries
 ```
 ---
 
 ## Scope and Guarantees
 
-OSS v0.1 targets L1/L2 core conformance. Spec contains L2/L3 and enterprise/2030 extensions — see [docs/OSS_CUTLINE.md](docs/OSS_CUTLINE.md) for the exact shipped-vs-spec boundary.
+OSS targets L1/L2 core conformance. The spec contains L3 and enterprise extensions — see [docs/OSS_SCOPE.md](docs/OSS_SCOPE.md) for the shipped-vs-spec boundary.
 
 ---
 
 ## Security Posture
 
-- **TCB isolation gate** — 8-package kernel boundary, CI-enforced forbidden imports ([TCB Policy](TCB_POLICY.md))
+- **TCB isolation gate** — 8-package kernel boundary, CI-enforced forbidden imports ([TCB Policy](docs/TCB_POLICY.md))
 - **Bounded compute gate** — WASI sandbox with gas/time/memory caps, deterministic traps on breach ([UC-005](docs/use_cases/UC-005_wasi_gas_exhaustion.sh))
 - **Schema drift fail-closed** — JCS canonicalization + SHA-256 on every tool call, both input and output ([UC-002](docs/use_cases/UC-002_schema_mismatch.sh))
 
