@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-# HELM Distribution Script (SOTA Full Coverage)
+# HELM Distribution Script
 # Usage: ./scripts/release/distribute.sh [version]
 # Example: ./scripts/release/distribute.sh 0.1.0
 

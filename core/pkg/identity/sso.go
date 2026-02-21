@@ -117,7 +117,7 @@ func (p *OIDCProvider) Callback(ctx context.Context, code string) (*IdentityToke
 	}
 
 	// Verify ID Token (simplified: assume signed by issuer, skip full JWKS validation for MVP, assume valid struct)
-	// In SOTA prod, we fetch JWKS from p.discoveryDoc.JWKSURI and use jwt.Parse with Keyfunc
+	// In production, we fetch JWKS from p.discoveryDoc.JWKSURI and use jwt.Parse with Keyfunc
 	// checking the signature. For this MVP step, we will parse unverified claims
 	// but enforce issuer check.
 	// SECURITY NOTE: MVP parses unverified claims with issuer check only.

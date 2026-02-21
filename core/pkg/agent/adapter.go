@@ -206,7 +206,7 @@ func (k *KernelBridge) dispatchDirectMCP(ctx context.Context, toolName string, p
 	// BUT, dispatchDirectMCP is for internal agent calls.
 	// The Pivot: The Agent *is* a principal. It should request a decision.
 	// Since we don't have a decision token here, we fail-closed.
-	// Direct execution without a decision token is ILLEGAL in SOTA.
+	// Direct execution without a decision token is not permitted.
 	return nil, fmt.Errorf("direct execution blocked: agent must request decision token via 'request_decision' tool first")
 }
 

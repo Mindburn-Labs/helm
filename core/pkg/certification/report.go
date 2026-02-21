@@ -23,7 +23,7 @@ type ConformanceReport struct {
 }
 
 // SignReport creates a signed ConformanceReport.
-// In a real SOTA implementation, signer would be an interface to a HSM/Vault.
+// In production, signer would be an interface to a HSM/Vault.
 // Here we accept a signer function for dependency injection.
 func SignReport(
 	id string,

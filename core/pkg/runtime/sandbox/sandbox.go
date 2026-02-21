@@ -13,7 +13,7 @@ import (
 )
 
 // Sandbox defines the isolation environment for executing packs.
-// SOTA Requirement: Must support strict resource limits and capability filtering.
+// Must support strict resource limits and capability filtering.
 type Sandbox interface {
 	// Run executes a pack with the given input and returns the result.
 	Run(ctx context.Context, packRef trust.PackRef, input []byte) ([]byte, error)

@@ -12,7 +12,7 @@ import (
 )
 
 // KeySet manages active signing keys and verification of past keys.
-// SOTA Requirement: Support rotation without downtime.
+// Support key rotation without downtime.
 type KeySet interface {
 	// Sign creates a signed token with the current active key.
 	Sign(ctx context.Context, claims jwt.Claims) (string, error)
@@ -42,7 +42,7 @@ func (ks *InMemoryKeySet) Rotate() error {
 	ks.mu.Lock()
 	defer ks.mu.Unlock()
 
-	// Generate new Ed25519 key (SOTA standard)
+	// Generate new Ed25519 key
 	_, privateKey, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
 		return fmt.Errorf("failed to generate key: %w", err)

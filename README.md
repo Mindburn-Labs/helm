@@ -13,7 +13,7 @@ HELM is a high-performance, deterministic proxy for LLM tool calling. It enforce
 
 ---
 
-## 🚀 SOTA 2026 Quickstart
+## 🚀 Quickstart
 
 Install the HELM CLI and start governing in 60 seconds:
 

@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # ╔══════════════════════════════════════════════════════════════════════════════╗
-# ║  HELM OSS SOTA 2026 End-to-End Repo Audit                                 ║
+# ║  HELM OSS End-to-End Repo Audit                                 ║
 # ║  Adapted for the open-source repository (helm-public)                      ║
 # ║                                                                            ║
 # ║  Usage:                                                                    ║
-# ║    bash scripts/ci/sota_audit.sh                   # run all sections      ║
-# ║    bash scripts/ci/sota_audit.sh --section <name>  # run single section    ║
-# ║    bash scripts/ci/sota_audit.sh --list            # list all sections     ║
+# ║    bash scripts/ci/repo_audit.sh                   # run all sections      ║
+# ║    bash scripts/ci/repo_audit.sh --section <name>  # run single section    ║
+# ║    bash scripts/ci/repo_audit.sh --list            # list all sections     ║
 # ║                                                                            ║
 # ║  Exit code = number of FAIL verdicts (0 = clean repo)                      ║
 # ╚══════════════════════════════════════════════════════════════════════════════╝
@@ -14,7 +14,7 @@ set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-EVIDENCE_DIR="$REPO_ROOT/data/evidence/sota_audit"
+EVIDENCE_DIR="$REPO_ROOT/data/evidence/repo_audit"
 TIMESTAMP="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 GIT_SHA="$(git -C "$REPO_ROOT" rev-parse HEAD 2>/dev/null || echo "unknown")"
 
@@ -505,14 +505,14 @@ declare -a ALL_SECTIONS=(
 print_summary() {
     echo ""
     echo -e "${BOLD}╔══════════════════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${BOLD}║                SOTA 2026 OSS AUDIT SUMMARY                               ║${NC}"
+    echo -e "${BOLD}║                OSS AUDIT SUMMARY                               ║${NC}"
     echo -e "${BOLD}╠══════════════════════════════════════════════════════════════════════════╣${NC}"
     echo -e "${BOLD}║${NC}  Sections:  ${BOLD}$TOTAL_SECTIONS${NC}"
     echo -e "${BOLD}║${NC}  ${GREEN}PASS${NC}: $PASS_COUNT  ${RED}FAIL${NC}: $FAIL_COUNT  ${YELLOW}WARN${NC}: $WARN_COUNT  ${YELLOW}SKIP${NC}: $SKIP_COUNT"
     echo -e "${BOLD}║${NC}  Git SHA:   $GIT_SHA"
     echo -e "${BOLD}║${NC}  Timestamp: $TIMESTAMP"
     echo -e "${BOLD}╠══════════════════════════════════════════════════════════════════════════╣${NC}"
-    [[ "$FAIL_COUNT" -eq 0 ]] && echo -e "${BOLD}║${NC}  ${GREEN}${BOLD}VERDICT: OSS REPO IS SOTA 2026 COMPLIANT${NC}" || echo -e "${BOLD}║${NC}  ${RED}${BOLD}VERDICT: $FAIL_COUNT FAILURES — NOT COMPLIANT${NC}"
+    [[ "$FAIL_COUNT" -eq 0 ]] && echo -e "${BOLD}║${NC}  ${GREEN}${BOLD}VERDICT: OSS REPO IS COMPLIANT${NC}" || echo -e "${BOLD}║${NC}  ${RED}${BOLD}VERDICT: $FAIL_COUNT FAILURES — NOT COMPLIANT${NC}"
     echo -e "${BOLD}╚══════════════════════════════════════════════════════════════════════════╝${NC}"
     cat > "$EVIDENCE_DIR/_summary.json" <<EOF
 {"timestamp":"$TIMESTAMP","git_sha":"$GIT_SHA","sections":$TOTAL_SECTIONS,"pass":$PASS_COUNT,"fail":$FAIL_COUNT,"warn":$WARN_COUNT,"skip":$SKIP_COUNT,"verdict":"$([ "$FAIL_COUNT" -eq 0 ] && echo "COMPLIANT" || echo "NOT_COMPLIANT")"}
@@ -522,7 +522,7 @@ EOF
 main() {
     echo -e "${BOLD}${CYAN}"
     echo "╔══════════════════════════════════════════════════════════════════════════╗"
-    echo "║         HELM OSS — SOTA 2026 Repository Audit                          ║"
+    echo "║         HELM OSS — Repository Audit                          ║"
     echo "║         Open-source edition (no commercial tier)                        ║"
     echo "╚══════════════════════════════════════════════════════════════════════════╝"
     echo -e "${NC}"

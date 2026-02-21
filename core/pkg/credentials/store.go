@@ -1,5 +1,5 @@
 // Package credentials provides secure, encrypted storage for AI provider credentials.
-// Follows 2026 SOTA patterns: AES-256-GCM encryption, vault pattern, automatic refresh.
+// AES-256-GCM encryption, vault pattern, automatic refresh.
 package credentials
 
 import (

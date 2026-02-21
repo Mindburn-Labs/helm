@@ -25,16 +25,16 @@ mkdir -p "$AI_EVIDENCE_DIR"
 source "$LIB_DIR/extract-json.sh" 2>/dev/null || true
 
 # ══════════════════════════════════════════════════════════════════════════════
-# LAYER 1: Deterministic Checks (SOTA)
+# LAYER 1: Deterministic Checks
 # ══════════════════════════════════════════════════════════════════════════════
 
 run_mechanical() {
     echo -e "${BOLD}${CYAN}"
     echo "╔══════════════════════════════════════════════════════════════════════════╗"
-    echo "║  Layer 1: Deterministic SOTA Audit (22 sections)                       ║"
+    echo "║  Layer 1: Deterministic Audit (22 sections)                       ║"
     echo "╚══════════════════════════════════════════════════════════════════════════╝"
     echo -e "${NC}"
-    bash "$SCRIPT_DIR/sota_audit.sh"
+    bash "$SCRIPT_DIR/repo_audit.sh"
 }
 
 # ══════════════════════════════════════════════════════════════════════════════

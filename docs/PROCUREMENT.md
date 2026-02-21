@@ -2,7 +2,7 @@
 This document provides guidance for organizations evaluating HELM for governing autonomous labor and agentic ecosystems.
 
 ## Core Value Proposition
-HELM is the only "SOTA" runtime that separates the **Cognitive Plane** (stochastic LLMs) from the **Truth Plane** (deterministic Go kernel). It ensures that no agentic action occurs without mathematical proof and policy compliance.
+HELM separates the **Cognitive Plane** (stochastic LLMs) from the **Truth Plane** (deterministic Go kernel). It ensures that no agentic action occurs without mathematical proof and policy compliance.
 
 ## Key Selection Criteria
 1. **Mathematical Determinism**: HELM uses JCS (RFC 8785) and Merkle-DAGs to ensure execution is replayable and non-repudiable.

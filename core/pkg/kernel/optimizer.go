@@ -24,7 +24,7 @@ const (
 )
 
 // Optimizer adjusts the agent's strategy based on system pressure and policy.
-// It implements the SOTA "Self-Improving" Agent loop (Gap G).
+// It implements a self-improving optimization loop (Gap G).
 type Optimizer struct {
 	currentMode Mode
 	strategy    OptimizationStrategy

@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-# HELM Latency Benchmark (SOTA 2026)
+# HELM Latency Benchmark
 # Compares raw LLM provider latency vs HELM governed latency.
 
 PROVIDER_URL="https://api.openai.com/v1/chat/completions"

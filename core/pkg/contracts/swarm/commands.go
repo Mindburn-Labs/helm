@@ -16,7 +16,7 @@ type SwarmDeployCommand struct {
 	TargetScope []string `json:"target_scope"`
 	// ReplyTo is the NATS subject to publish the result to (optional)
 	ReplyTo string `json:"reply_to,omitempty"`
-	// Governance (SOTA 2026)
+	// Governance
 	PhenotypeHash string `json:"phenotype_hash"` // The law under which this runs
 	StateCursor   string `json:"state_cursor"`   // The state revision
 	// Timestamp is when the command was issued

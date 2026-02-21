@@ -6,7 +6,7 @@ import (
 )
 
 // PackMetrics captures the runtime telemetry for a specific pack.
-// SOTA Requirement: Quantify reliability and trust (install base, failure rate, evidence success).
+// Quantify reliability and trust (install base, failure rate, evidence success).
 type PackMetrics struct {
 	PackID              string    `json:"pack_id"`
 	Version             string    `json:"version"`
@@ -22,7 +22,7 @@ type PackMetrics struct {
 }
 
 // CalculateTrustScore computes a normalized trust score (0.0-1.0) based on metrics and SLOs.
-// SOTA Requirement: Quantify trust so users rely on the aggregated data (switching cost).
+// Quantify trust so users rely on the aggregated data (switching cost).
 func CalculateTrustScore(metrics PackMetrics, slos *ServiceLevelObjectives) float64 {
 	if slos == nil {
 		return 0.5 // Default neutral score if no SLOs defined

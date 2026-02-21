@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-# HELM Installer (SOTA 2026)
+# HELM Installer
 # Installs the latest release of the HELM CLI.
 
 REPO="Mindburn-Labs/helm"
@@ -51,7 +51,7 @@ echo -e "  • Downloading... (${BINARY_URL})"
 curl -L -o "$DOWNLOAD_PATH" "$BINARY_URL" --progress-bar
 
 # 4. Verify Checksum (Optional but recommended)
-# (Skipped for simplicity in this MVP installer, but SOTA would do it)
+# TODO: Add checksum verification
 
 # 5. Install
 echo -e "  • Installing to ${BOLD}${INSTALL_DIR}${NC}..."

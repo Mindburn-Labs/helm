@@ -7,7 +7,7 @@ import (
 )
 
 // CheckCompatibility verifies if a pack is compatible with the given kernel version.
-// SOTA Requirement: Users build on standards (compatibility matrix) instead of just the repo.
+// Users build on standards (compatibility matrix) instead of just the repo.
 func CheckCompatibility(manifest PackManifest, kernelVersion string) error {
 	if manifest.ApplicabilityConstraints == nil || manifest.ApplicabilityConstraints.KernelVersion == "" {
 		// No constraint specified, assume compatible (or default to stricter policy if needed)

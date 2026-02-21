@@ -265,7 +265,7 @@ func (p *CELPolicyDecisionPoint) Evaluate(ctx context.Context, req PDPRequest) (
 	highRiskTypes := []string{"FUNDS_TRANSFER", "PERMISSION_CHANGE", "DEPLOY"}
 	for _, hr := range highRiskTypes {
 		if req.Effect.EffectType == hr {
-			// SOTA Wiring: Check Knowledge Graph for "DEPLOY" context
+			// TODO: Check Knowledge Graph for "DEPLOY" context
 			if hr == "DEPLOY" && p.oracle != nil {
 				// Example: Check if the repo build is passing
 				// In reality, Subject would come from req.Subject or Context

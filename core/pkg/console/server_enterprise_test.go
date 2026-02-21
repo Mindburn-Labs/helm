@@ -112,7 +112,7 @@ func TestEnterpriseFoundation(t *testing.T) {
 	mux.HandleFunc("/api/registry/install", srv.handleRegistryInstallAPI)
 	mux.HandleFunc("/api/admin/audit/export", srv.handleAuditExportAPI)
 
-	// Setup Auth with SOTA KeySet
+	// Setup Auth with KeySet
 	ks, _ := identity.NewInMemoryKeySet()
 	validator := auth.NewJWTValidator(ks)
 

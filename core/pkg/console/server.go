@@ -21,7 +21,7 @@ import (
 	"github.com/Mindburn-Labs/helm/core/pkg/compliance/csr"
 	"github.com/Mindburn-Labs/helm/core/pkg/console/ui"
 	"github.com/Mindburn-Labs/helm/core/pkg/contracts"
-	"github.com/Mindburn-Labs/helm/core/pkg/governance" // SOTA 2030: Policy Engine
+	"github.com/Mindburn-Labs/helm/core/pkg/governance" // Policy Engine
 	"github.com/Mindburn-Labs/helm/core/pkg/metering"
 	"github.com/Mindburn-Labs/helm/core/pkg/pack"
 
@@ -41,7 +41,7 @@ type Server struct {
 	packVerifier *pack.Verifier
 
 	// Enterprise Foundation
-	policyEngine *governance.PolicyEngine // SOTA: CEL-based
+	policyEngine *governance.PolicyEngine // CEL-based
 	auditLogger  audit.Logger
 	auditStore   *store.AuditStore
 	auditExport  *audit.Exporter
@@ -68,7 +68,7 @@ type Server struct {
 	approvals    map[string]*operatorApproval
 	operatorRuns map[string]*operatorRunState
 
-	// JWT Validator (SOTA 2030: WS handshake auth)
+	// JWT Validator for WebSocket handshake auth
 	jwtValidator *auth.JWTValidator
 
 	// Metrics Manager (GAP-01: Operability Surfaces)
@@ -89,7 +89,7 @@ type pendingSignup struct {
 // Start launches the Console Server.
 func Start(port int, ledger ledger.Ledger, reg registry.Registry, uiAdapter ui.UIAdapter, receiptStore store.ReceiptStore, meter metering.Meter, staticDir string, verifier *pack.Verifier, validator *auth.JWTValidator, extraRoutes func(*http.ServeMux)) error {
 	// Initialize Enterprise Components
-	// SOTA 2030: Use Governance Policy Engine
+	// TODO: Integrate Governance Policy Engine
 	pol, err := governance.NewPolicyEngine()
 	if err != nil {
 		return fmt.Errorf("failed to init policy engine: %w", err)
@@ -527,7 +527,7 @@ func (s *Server) handleBuilderAPI(w http.ResponseWriter, r *http.Request) {
 	})
 
 	// Orchestration: JIT Planning
-	// SOTA 2030: Use the JIT Planner to generate a plan based on the intent.
+	// TODO: Use the JIT Planner to generate a plan based on the intent.
 	// fsm := orchestration.NewFSM(fmt.Sprintf("builder-%d", time.Now().UnixNano()))
 
 	// Create context and intent
@@ -615,7 +615,7 @@ func (s *Server) handleFactoryAPI(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// SOTA: Use Governance Policy Engine
+	// TODO: Integrate Governance Policy Engine
 	ctx := r.Context()
 	accessReq := contracts.AccessRequest{
 		PrincipalID: "user:unknown", // In real system, get from ctx
@@ -650,7 +650,7 @@ func (s *Server) handleFactoryAPI(w http.ResponseWriter, r *http.Request) {
 	})
 
 	// Ops Execution: Provision via Runtime
-	// SOTA 2030: Use active runtime to provision resources.
+	// TODO: Use active runtime to provision resources.
 
 	timestamp := time.Now()
 	idPart := fmt.Sprintf("%d", timestamp.UnixNano())
@@ -733,7 +733,7 @@ func (s *Server) handleRegistryInstallAPI(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// SOTA: Use Governance Policy Engine
+	// TODO: Integrate Governance Policy Engine
 	userID := "user:unknown"
 	if p, err := auth.GetPrincipal(ctx); err == nil {
 		userID = p.GetID()

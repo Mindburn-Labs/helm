@@ -1,4 +1,4 @@
--- Migration: Create credentials table for SOTA credential management
+-- Migration: Create credentials table for credential management
 -- Version: 001
 -- Description: Stores encrypted AI provider credentials (OAuth tokens, API keys)
 

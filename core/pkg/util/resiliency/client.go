@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-// EnhancedClient wraps http.Client with SOTA 2030 patterns:
+// EnhancedClient wraps http.Client with resilience patterns:
 // - Exponential Backoff & Jitter
 // - Circuit Breaking
 // - Distributed Tracing Injection
@@ -33,7 +33,7 @@ func NewEnhancedClient() *EnhancedClient {
 func (c *EnhancedClient) Do(req *http.Request) (*http.Response, error) {
 	// 1. Trace Injection (W3C Trace Context)
 	// In production, this would grab the span from ctx.
-	// Here we stick to a simulated trace ID for SOTA compliance.
+	// Here we stick to a simulated trace ID for observability.
 	var traceBytes [16]byte
 	traceID := ""
 	if _, err := rand.Read(traceBytes[:]); err == nil {
