@@ -1,6 +1,6 @@
 {
-  "bundle_root": "3d79dfba499c361dd77bb68bdd850bc045506d4c4ea32aa462c9b02c71a13cb5",
-  "merkle_root": "da3ac855b2e9be9ad88c6259c0b4c272b8a02b3e2773ce5e32b8fd5e9b2ed9c1",
+  "bundle_root": "daa3e17ccd06ebbf0e579f79314b514638879f0ece2926dfae00f55a7767f88e",
+  "merkle_root": "f63b50553834243bf75336d04314255ce5dafd33a97ca47a1bbb53d23606e28e",
   "expected_verdict": "PASS",
   "expected_gates": [
     "G0",

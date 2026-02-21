@@ -123,13 +123,25 @@ export function renderResult(result: VerificationResult, depth: number): void {
         renderGateDetails(result.gates.gateResults);
     }
 
-    // Depth 3: Tree stats
+    // Depth 3: Evidence tree summary + attestation details
     if (depth >= 3) {
-        w(`  ${c.bold}Tree Stats${c.reset}`);
-        w(`  ${c.dim}Entries:     ${result.hash_chain.totalEntries} leaves${c.reset}`);
-        w(`  ${c.dim}Verified:    ${result.hash_chain.verifiedEntries}${c.reset}`);
-        w(`  ${c.dim}Failed:      ${result.hash_chain.failedEntries.length}${c.reset}`);
+        w(`  ${c.bold}Evidence Tree${c.reset}`);
+        w(`  ${c.dim}Total entries:   ${result.hash_chain.totalEntries} leaves${c.reset}`);
+        w(`  ${c.dim}Verified:        ${result.hash_chain.verifiedEntries}${c.reset}`);
+        w(`  ${c.dim}Failed:          ${result.hash_chain.failedEntries.length}${c.reset}`);
         w("");
+
+        // Attestation details
+        if (result.attestation.attestation) {
+            const att = result.attestation.attestation;
+            w(`  ${c.bold}Attestation${c.reset}`);
+            w(`  ${c.dim}Key ID:          ${att.keys_key_id}${c.reset}`);
+            w(`  ${c.dim}Profiles hash:   ${att.profiles_manifest_sha256}${c.reset}`);
+            if (att.producer) {
+                w(`  ${c.dim}Producer:        ${att.producer.name} v${att.producer.version}${att.producer.commit ? ` (${att.producer.commit.substring(0, 8)})` : ""}${c.reset}`);
+            }
+            w("");
+        }
     }
 }
 
@@ -143,13 +155,15 @@ export function renderGateDetails(gates: GateResult[]): void {
     w(`  ${c.dim}${"─".repeat(60)}${c.reset}`);
 
     for (const gate of gates) {
-        const icon = gate.pass ? `${c.green}✓${c.reset}` : `${c.red}✗${c.reset}`;
+        const passing = gate.status ? (gate.status === "pass" || gate.status === "skip" || gate.status === "na") : gate.pass;
+        const icon = passing ? `${c.green}✓${c.reset}` : `${c.red}✗${c.reset}`;
         const name = GATE_NAMES[gate.gate_id] ?? gate.gate_id;
+        const statusTag = gate.status ? ` ${c.dim}[${gate.status}]${c.reset}` : "";
         const dur = `${c.dim}${gate.metrics.duration_ms}ms${c.reset}`;
 
-        w(`  ${icon} ${c.bold}${gate.gate_id.padEnd(14)}${c.reset} ${name.padEnd(28)} ${dur}`);
+        w(`  ${icon} ${c.bold}${gate.gate_id.padEnd(14)}${c.reset} ${name.padEnd(28)} ${dur}${statusTag}`);
 
-        if (!gate.pass && gate.reasons.length > 0) {
+        if (!passing && gate.reasons.length > 0) {
             for (const reason of gate.reasons) {
                 w(`    ${c.red}└ ${reason}${c.reset}`);
             }
