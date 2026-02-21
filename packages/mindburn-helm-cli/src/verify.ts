@@ -43,13 +43,16 @@ const MANDATORY_DIRS = [
  *
  * @param bundlePath - Absolute path to the evidence bundle root directory.
  * @param level - Conformance level to check (L1 or L2).
+ * @param opts - Optional verification options.
  * @returns Complete verification result.
  */
 export async function verifyBundle(
     bundlePath: string,
     level: ConformanceLevel,
+    opts?: { allowUnsigned?: boolean },
 ): Promise<VerificationResult> {
     const start = performance.now();
+    const allowUnsigned = opts?.allowUnsigned ?? true; // default true for backward compat
 
     // 1. Structure
     const structure = await checkStructure(bundlePath);
@@ -74,16 +77,21 @@ export async function verifyBundle(
     // 6. Gates
     const gates = checkGates(scoreData, level);
 
-    // 7. Attestation (local bundles have no attestation by default)
-    const attestation: AttestationCheck = {
-        pass: true, // no attestation to check for local bundles
-        verified: false,
-        reason: "no attestation available (local bundle)",
-    };
+    // 7. Attestation
+    const hasAttestation = signature.signerID !== undefined;
+    const attestation: AttestationCheck = hasAttestation
+        ? { pass: true, verified: true, reason: `signed by ${signature.signerID}` }
+        : {
+              pass: allowUnsigned,
+              verified: false,
+              reason: allowUnsigned
+                  ? "no attestation available (local bundle, --allow-unsigned)"
+                  : "unsigned bundle rejected (use --allow-unsigned to allow)",
+          };
 
     const timing = Math.round(performance.now() - start);
 
-    const pass = structure.pass && hashChain.pass && signature.pass && gates.pass;
+    const pass = structure.pass && hashChain.pass && signature.pass && gates.pass && attestation.pass;
 
     return {
         schema_version: "1",
